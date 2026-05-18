@@ -1,175 +1,150 @@
 # Chris Gramly · Clear Modern Mortgage — Engineering Notes
 
-This is a Vite + React + TypeScript single-page site that wraps a single
-`<Canvas>` (`@react-three/fiber`) with a cinematic scroll-bound 3D
-experience. Below the cinematic hero are real, navigable mortgage
-sections (about, purchase, refinance calculator, resources, contact form).
+Cinematic, editorial single-page site for a Las Vegas mortgage advisor.
+Scroll-scrubbed hero video, pinned-stack sections, smooth scroll, dark
+warm-ink background with brass gold accents.
+
+## Project state
+
+This repo was bootstrapped through a Three.js/Vite cinematic and then
+reset to **Next.js 16 + React 19 + Tailwind v4** under an 11-phase
+foundation plan. This file documents the current (Next.js) stack. The
+legacy Vite + React 18 + Three.js notes are preserved at
+`docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
+the working tree contains now**.
+
+We are currently at **phase 02 — Stack & Foundation**. Phases 03–10
+fill in design tokens, hero video, portfolio stack, navbar/footer,
+Clerk auth, Resend forms, and Turso persistence — in that order.
 
 ## Stack
 
-- **Build**: Vite 6, TypeScript 5
-- **UI**: React 18
-- **3D**: `three` 0.171, `@react-three/fiber` 8, `@react-three/drei` 9, `@react-three/postprocessing` 2
-- **Animation**: `gsap` 3 + `@gsap/react` + ScrollTrigger
-- **Fonts**: Cormorant Garamond (display serif) + Inter (UI sans), Google Fonts
-- **Deploy**: GitHub Pages via Actions, base path `/ChrisGramlyMortgage/`
+- **Framework**: Next.js 16.2.4 (App Router)
+- **React**: 19.2.4
+- **Language**: TypeScript 5
+- **Styles**: Tailwind v4 (CSS-first config via `@theme` in `app/globals.css` — no `tailwind.config.ts`)
+- **Smooth scroll**: Lenis 1.3.23 + GSAP 3 ScrollTrigger
+- **Package manager**: pnpm
+- **Deploy**: Vercel (configured in a later phase)
+
+This is **Next.js 16**, not the Next.js most tutorials describe. Key
+moved-or-renamed APIs:
+
+- `middleware.ts` no longer exists at the app root — it is now
+  `proxy.ts`. Same API surface, new filename. Clerk integration uses
+  `clerkMiddleware()` inside `proxy.ts` (phase 09).
+- For anything that touches Next.js APIs (Link prefetching, fonts,
+  metadata, server actions, route handlers, image), open
+  `node_modules/next/dist/docs/` and read the in-repo docs before
+  writing code. They override anything an external tutorial says.
 
 ## File layout
 
 ```
-index.html                 # Vite entry, loads /src/main.tsx
-src/
-  main.tsx                 # React root
-  App.tsx                  # Page composition
-  components/
-    canvas/
-      CanvasRoot.tsx       # Single <Canvas>, fixed full-viewport
-      scenes/
-        SceneSky.tsx       # Scene 1: sky intro / hero
-        Scene<Next>.tsx    # Each new scene is its own file
-    site/
-      Header.tsx           # Sticky nav, light theme
-      Footer.tsx
-      About.tsx
-      Purchase.tsx
-      Refinance.tsx        # Includes mortgage calculator
-      Resources.tsx
-      Contact.tsx          # Profile card + form
-  lib/
-    scroll.ts              # ScrollProvider, useScroll, ScrollTrigger setup
-    pageBounds.ts          # Scene Y-ranges + progress lookups
-    palette.ts             # Color tokens shared between CSS + JS
-  styles/
-    globals.css            # CSS resets, tokens, light base styles
-  types/
-    drei.d.ts              # Ambient types if drei JSX is missing
-public/
-  assets/                  # Existing brand assets: photo, logo, hero, svg
-legacy/                    # Pre-scaffold static site, preserved for reference
-.github/workflows/pages.yml
+.
+├── package.json
+├── tsconfig.json              # paths: @/* → ./*
+├── next.config.ts
+├── postcss.config.mjs         # @tailwindcss/postcss only
+├── eslint.config.mjs          # extends next/core-web-vitals + next/typescript
+├── .gitignore
+├── .env.local                 # populated in phases 09–10
+├── proxy.ts                   # empty stub; Clerk lands here in phase 09
+├── app/
+│   ├── layout.tsx             # root: fonts, metadata
+│   ├── globals.css            # Tailwind import + base html/body colors
+│   ├── (site)/
+│   │   ├── layout.tsx         # SmoothScroll mount + header/main/footer
+│   │   └── page.tsx           # placeholder home
+│   ├── components/
+│   │   └── SmoothScroll.tsx   # the single scroll authority
+│   └── lib/
+│       └── utils.ts           # cn() helper
+├── public/                    # brand assets (chris-gramly.png, logo, …)
+└── docs/
+    ├── CLAUDE.vite-legacy.md  # frozen notes from the old Three.js stack
+    └── cinematic-reference.md # Higgsfield reference video pointer
 ```
 
-## Single Canvas convention
+**Path imports**: `app/lib/` and `app/components/` live **inside** `app/`,
+not at the repo root. All imports go through `@/app/lib/…` and
+`@/app/components/…`. `tsconfig.json` configures `@/* → ./*`.
 
-There is exactly **one** `<Canvas>` in the whole app, mounted by
-`CanvasRoot.tsx` and positioned `fixed; inset: 0; pointer-events: none`.
-Each scene is a React component placed inside it (visible only while its
-scroll range is active).
+## Fonts
 
-Why: every additional Canvas allocates a WebGL context, kills shared
-state, and tanks mobile performance.
+Three Google fonts via `next/font/google`, all with `display: "swap"`:
 
-If you need a "different scene" you build a new component in
-`components/canvas/scenes/` and reveal/hide it via the scroll context.
+| Role    | Family             | Weights                     | CSS variable      |
+|---------|--------------------|-----------------------------|-------------------|
+| Display | Cormorant Garamond | 300, 400, 500, 600, 700     | `--font-display`  |
+| Body    | Inter              | 300, 400, 500, 600          | `--font-body`     |
+| Mono    | JetBrains Mono     | 300, 400, 500               | `--font-mono`     |
 
-## Scroll context (`lib/scroll.ts`)
+Note: Cormorant Garamond doesn't ship 200 or 800 weights even though
+the phase prompt asked for them; the available range is 300–700. If
+you ever try to add 200 or 800 to the weight array, `next build`
+fails — that's the constraint, not a bug.
 
-- A single ScrollTrigger covers `<main>`'s height. Its progress (0→1)
-  is exposed via `useScroll()` (subscribe pattern, not React state — we
-  do not want every frame to trigger a React render).
-- Each scene reads progress in its `useFrame` and computes its own
-  local 0→1 based on `pageBounds.ts`. Example: SceneSky owns the first
-  100vh, so its local progress = clamp((globalY - 0) / vh, 0, 1).
-- 2D copy overlays use GSAP timelines whose `progress()` is set from the
-  same global scroll value — that way scroll-up reverses the animation.
+## Tailwind v4
 
-## Animation rules
+Tailwind 4 is CSS-first. There is **no** `tailwind.config.ts`. All
+design tokens go inside `app/globals.css` via `@theme`. For phase 02
+the file is intentionally minimal: just the `@import "tailwindcss"`
+and a base `html, body` color block. Phase 03 fills in `@theme` with
+the design tokens (`--color-ink`, `--color-bone`, `--color-brass`,
+etc.) — until then, classes like `bg-ink` and `text-bone` referenced
+in `app/layout.tsx` don't resolve to anything, and the html/body
+fallback colors are what you see.
 
-- **Bind to scroll, not to time** — every reveal/transition is driven by
-  the scroll context. No `setTimeout`, no autoplaying intro that finishes
-  on a clock.
-- **All animations reversible** — scrolling up must undo everything that
-  scrolling down did. No one-shot `.add()` to a timeline that doesn't
-  reverse.
-- Camera moves use cubic ease-in-out via small helpers in scenes (no
-  GSAP for camera position — it's just a `useFrame` lerp).
+## SmoothScroll
 
-## Palette
+The single source of scroll authority. Lives at `app/components/SmoothScroll.tsx`
+and is mounted once in `app/(site)/layout.tsx`. Contract:
 
-| Token            | Hex       | Use                                                |
-|------------------|-----------|----------------------------------------------------|
-| `--paper`        | `#f6f0e4` | Warm cream background for light sections           |
-| `--paper-sub`    | `#ece4d2` | Section dividers / subtle bands                    |
-| `--ink`          | `#0a1224` | Body text on light                                 |
-| `--ink-soft`     | `#2d3a52` | Secondary text                                     |
-| `--brass`        | `#c8a047` | Primary gold accent — buttons, links, scene gold   |
-| `--brass-deep`   | `#9a7830` | Hover / pressed                                    |
-| `--ink-dark`     | `#f6f0e4` | Text on dark scenes (same as paper for cohesion)   |
-| `--cream`        | `#f7ecd6` | Warm cream for cinematic interiors (beats 1, 3)    |
-| `--cream-deep`   | `#e8d6ad` | Deeper cream for shadows / undersides              |
-| `--marble-white` | `#fbf7ef` | Penthouse exteriors, glass tint                    |
-| `--gold-glow`    | `#d9b063` | Cinematic gold accent (warmer than `--brass`)      |
-| `--gold-deep`    | `#a37b2d` | Inset gold, deep shadow                            |
-| `--sky-warm-top` | `#f5d99a` | Golden-hour sky top (beats 0, 2, 3)                |
-| `--sky-warm-mid` | `#e8b070` | Golden-hour mid-band                               |
-| `--sky-warm-haze`| `#fde7c4` | Cloud / haze tint                                  |
+- Mounts a Lenis instance on desktop only. Touch devices (`pointer:
+  coarse`) and `prefers-reduced-motion: reduce` skip mounting — native
+  scroll takes over. Touch + Lenis + pinned GSAP timelines produces
+  jank that costs more than the smooth scroll buys.
+- Bridges Lenis ↔ GSAP: `lenis.on("scroll", ScrollTrigger.update)`,
+  `gsap.ticker.add((t) => lenis.raf(t * 1000))`, `gsap.ticker.lagSmoothing(0)`.
+- Exposes the instance on `window.__lenis` (typed via `declare global`).
+- Intercepts clicks on `a[href^="#"]` and `a[href*="/#"]` whose target
+  exists in the current document and runs `lenis.scrollTo(target, { offset: -80, duration: 1.4 })`.
+- On every route change after first mount: stops in-flight scroll,
+  scroll-to-hash if the URL has one (rAF-deferred so the new page can
+  mount), otherwise hard-resets to top. Then `ScrollTrigger.refresh()`
+  so any pinned section in the new page binds to the new geometry.
 
-**The cinematic is warm: golden-hour sky, white-and-gold penthouses.**
-All four beats live in the warm palette now. The original "Private
-Bank" dark sky tokens (`skyTop`, `skyBottom`, `ambient`, `groundDim`)
-were removed from `palette.ts` once SceneSky was reworked. The rest
-of the site (About, Purchase, etc.) stays in the existing `--paper` /
-`--ink` / `--brass` palette.
+The route-reset block matters: Next.js 16 Link preserves scroll
+position by default when the next page is visible, which on
+same-background pages leaves you mid-scroll with pinned sections in
+broken states.
 
-## Cinematic journey (4 beats)
+## Scripts
 
-The hero pin in `lib/scroll.ts` runs for `+=400%`, giving four beats of
-100vh scroll each. `lib/pageBounds.ts → getBeat()` maps scrollY to:
+```bash
+pnpm install
+pnpm dev      # next dev — http://localhost:3000
+pnpm build    # next build — production check
+pnpm start    # next start — serve the build
+pnpm lint     # next lint
+```
 
-| Beat | Scene component         | What happens                                            |
-|------|-------------------------|---------------------------------------------------------|
-| 0    | `SceneSky`              | High in golden-hour sky; first white penthouse appears  |
-| 1    | `ScenePenthouseInterior`| Glide through gold-trimmed interior                     |
-| 2    | `SceneTransitSky`       | Exit, soar upward through warm clouds                   |
-| 3    | `ScenePenthouseFinale`  | Descend to face second penthouse on cliff               |
+## Cinematic reference
 
-Each scene is wrapped in `<BeatGate index={N}>` in `CanvasRoot`. The
-gate toggles `group.visible` via ref — no React re-render per frame.
-
-Reference video for the journey: see `docs/cinematic-reference.md`.
-
-`BeatHud` (bottom-right corner) shows the active beat + local progress
-during development. Delete it once the real scenes are in.
-
-## Performance budget
-
-- 60fps on a 2021 iPhone (A14)
-- Limit total triangles in any active scene to ~50k
-- `dpr={[1, 1.75]}` on the Canvas (don't render at 3x on retina)
-- Pause scenes when their scroll range is fully off-screen
-- `<Bloom>` is the most expensive postprocess — keep `intensity` modest
+A Higgsfield-generated reference video (sky → white penthouse → sky →
+second penthouse) is documented at `docs/cinematic-reference.md`. The
+hero scroll-video in phase 04 will either use that clip directly or
+re-generate against the same prompt. The reference itself is not
+committed (working asset, not a deployed artifact).
 
 ## Don'ts
 
-- No new `<Canvas>` instances
-- No `useState` driven by `useFrame` (causes per-frame React render)
-- No `setInterval` / `setTimeout` for scene animation
-- No "Welcome!" / "Hello!" / exclamation copy
-- No emojis
-- No first-person flight / airplane / helicopter clichés
-- No orbit controls unless the prompt explicitly asks for them
-- No corporate stock photography
-
-## Existing assets (preserve)
-
-- `public/assets/chris-gramly.png` — Chris's headshot
-- `public/assets/clear-modern-logo.png` — company logo
-- `public/assets/home-financing-hero.png` — original hero photograph
-- `public/assets/equal-housing.svg` — equal housing opportunity badge
-- Phone: (702) 767-4072 · Email: chris.gramly@clearmtg.com
-- NMLS: 1984074 · Licensed CA + NV
-- Office: 8751 W Charleston Blvd #220, Las Vegas, NV 89117
-- FormSubmit endpoint: `https://formsubmit.co/ajax/chris.gramly@clearmtg.com`
-- Apply Now: `https://www.clearmodernmortgage.com/loan-officer/chris-gramly/apply-now`
-
-## Building & deploying
-
-```bash
-npm install
-npm run dev      # Vite dev server at 127.0.0.1:5173
-npm run build    # Output to dist/
-npm run preview  # Serve the build
-```
-
-GitHub Pages source must be set to **"GitHub Actions"** in repo settings.
-The workflow `.github/workflows/pages.yml` builds `/dist` and deploys.
+- Do not `npx create-next-app` — it pulls templated defaults that
+  conflict with the file tree above.
+- Do not add `tailwind.config.ts` — Tailwind 4 is CSS-first.
+- Do not install Clerk / Resend / `@libsql/client` / `tsx` yet.
+  Those land in phases 09–10.
+- Do not import from `pages/`. App Router only.
+- Do not add `<header>` / `<footer>` real content yet. They're stubs
+  until phase 07.

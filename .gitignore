@@ -1,6 +1,15 @@
 node_modules
-dist
-.vite
-*.log
-.DS_Store
+.next
+.env*.local
 *.tsbuildinfo
+.DS_Store
+dist
+build
+coverage
+pnpm-debug.log
+next-env.d.ts
+
+# Local dev caches (MCP / RAG tooling)
+ruvector.db
+agentdb.rvf
+agentdb.rvf.lock

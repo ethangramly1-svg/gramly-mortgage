@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+:root {
+  /* Filled in phase 03 — design tokens */
+}
+
+html, body {
+  background: #0f0b06;
+  color: #ece3cc;
+  overflow-x: hidden;
+}
