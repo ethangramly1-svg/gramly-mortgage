@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 05 — CollectionOverture**, complete.
-Phases 06–10 fill in PortfolioStack, navbar/footer, Clerk auth,
-Resend forms, and Turso persistence — in that order.
+We are currently at **phase 06 — PortfolioStack**, complete.
+Phases 07–10 fill in navbar/footer, Clerk auth, Resend forms, and
+Turso persistence — in that order.
 
 ## Stack
 
@@ -249,6 +249,55 @@ page — a pinned aperture-reveal transition between `<ScrollVideo>` and
 | Caption (soft, bone/45)   | "Las Vegas."                 |
 | Right-side meta           | "36.169° N · 115.140° W"     |
 | Signature image           | `/assets/penthouse-2.jpg`    |
+
+## PortfolioStack (phase 06)
+
+`app/components/PortfolioStack.tsx` — the third beat of the home page.
+A pinned full-viewport stack where N cards slide up over each other,
+one viewport at a time.
+
+### Behavior
+
+- **Desktop ≥ 768px:** GSAP `matchMedia` pins the section for
+  `N × innerHeight` of scroll. Each successive card animates
+  `yPercent: 100 → 0` across its own viewport-height slice. `zIndex`
+  grows with index so later cards visually cover earlier ones.
+- **Mobile:** cards render as a flowing vertical list — no pin, no
+  scrub. (Pinning + scrubbed `yPercent` on touch is brutal.)
+- **`invalidateOnRefresh: true`** on the ScrollTriggers — start/end
+  formulas reference `window.innerHeight`, which changes on mobile
+  Safari when the address bar collapses.
+
+### Items data (`app/lib/items.ts`)
+
+Five mortgage programs are defined in `ITEMS`:
+
+| Slug          | Index       | Cover image                       |
+|---------------|-------------|-----------------------------------|
+| `jumbo`       | Jumbo       | `/assets/penthouse-1.png`         |
+| `conventional`| Purchase    | `/assets/penthouse-4.png`         |
+| `refinance`   | Refinance   | `/assets/penthouse-3.jpg`         |
+| `investment`  | Investor    | `/assets/penthouse-5.png`         |
+| `government`  | First home  | `/assets/home-financing-hero.png` |
+
+`jumbo` is featured in the hero (ScrollVideo's CTA points to `/jumbo`)
+and filtered out of the stack in `app/(site)/page.tsx`. The stack
+renders 4 cards. Each card links to `/${slug}` — the detail pages
+arrive in phase 08.
+
+### Card structure
+
+Each card is a 12-column grid with the cover image (col-span-8) and
+a metadata column (col-span-4). Odd-indexed cards reverse direction
+via `md:[direction:rtl]` on the grid + `md:[direction:ltr]` on each
+column — the *visual* order flips without re-ordering the DOM, which
+keeps tab order and a11y intact.
+
+The metadata column always has the same five things in the same
+positions: location with leading hairline, large display name,
+subtitle, three-metric row with a hairline top + bottom, and the
+"Guide price + Dossier →" pairing. **Do not move the price/Dossier
+pairing.** It's the conversion moment.
 
 ## SmoothScroll
 
