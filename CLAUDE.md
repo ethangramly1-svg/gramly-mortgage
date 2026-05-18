@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 02 — Stack & Foundation**. Phases 03–10
-fill in design tokens, hero video, portfolio stack, navbar/footer,
-Clerk auth, Resend forms, and Turso persistence — in that order.
+We are currently at **phase 03 — Design Tokens & Type Scale**, complete.
+Phases 04–10 fill in hero video, portfolio stack, navbar/footer, Clerk
+auth, Resend forms, and Turso persistence — in that order.
 
 ## Stack
 
@@ -85,16 +85,74 @@ the phase prompt asked for them; the available range is 300–700. If
 you ever try to add 200 or 800 to the weight array, `next build`
 fails — that's the constraint, not a bug.
 
-## Tailwind v4
+## Design system (phase 03)
 
-Tailwind 4 is CSS-first. There is **no** `tailwind.config.ts`. All
-design tokens go inside `app/globals.css` via `@theme`. For phase 02
-the file is intentionally minimal: just the `@import "tailwindcss"`
-and a base `html, body` color block. Phase 03 fills in `@theme` with
-the design tokens (`--color-ink`, `--color-bone`, `--color-brass`,
-etc.) — until then, classes like `bg-ink` and `text-bone` referenced
-in `app/layout.tsx` don't resolve to anything, and the html/body
-fallback colors are what you see.
+Tailwind 4 is CSS-first. There is **no** `tailwind.config.ts`. Tokens,
+component classes, and animations all live in `app/globals.css`.
+
+### Tokens (`:root` + `@theme inline`)
+
+| Group  | CSS variable     | Hex / value                                  |
+|--------|------------------|----------------------------------------------|
+| Ink    | `--ink`          | `#0f0b06` (warm espresso, not pure black)    |
+|        | `--ink-soft`     | `#181108`                                    |
+|        | `--ink-panel`    | `#1f1709`                                    |
+| Gold   | `--gold`         | `#d4b46a` (the one chromatic accent)         |
+|        | `--gold-bright`  | `#ecd28c`                                    |
+|        | `--gold-mid`     | `#c2994d`                                    |
+|        | `--gold-deep`    | `#967135`                                    |
+|        | `--gold-ember`   | `#5a4420`                                    |
+| Bone   | `--bone`         | `#ece3cc` (warm cream foreground)            |
+|        | `--bone-dim`     | `rgba(236, 227, 204, 0.55)`                  |
+| Line   | `--line`         | `rgba(212, 180, 106, 0.22)`                  |
+|        | `--line-strong`  | `rgba(212, 180, 106, 0.40)`                  |
+
+The accent is called **gold** in code regardless of whatever the brand
+color is — it's the project's name for the one chromatic accent across
+all sites in this family. Don't rename it.
+
+### Design philosophy
+
+1. **Warm ink, not black.** Background is `#0f0b06` with two soft
+   radial gold spots layered on top.
+2. **Accent used like a knife.** Gold appears only in hairlines,
+   eyebrow micro-labels, focused input underlines, one CTA button,
+   gradient-text moments, hover affordances. Never as a card fill.
+3. **Three fonts, three weights — not the Tailwind preset ladder.**
+   Display 200–300 at huge sizes (clamp 3rem–9vw). Body 300–400. Mono
+   300–400 at 0.55–0.68rem with 0.22–0.4em letter-spacing, uppercase.
+4. **Hairlines and brackets, not cards.** No shadows, no rounded
+   rectangles, no card components. Structural language is typographic.
+
+### Component classes (all in `globals.css`)
+
+| Class             | What it is                                                  |
+|-------------------|-------------------------------------------------------------|
+| `.eyebrow`        | Mono micro-label in gold, `0.28em` tracking, uppercase      |
+| `.eyebrow-sm`     | Tighter variant — `0.24em` tracking, `0.6rem`               |
+| `.hairline`       | 1px horizontal rule — fade-in-out gradient gold             |
+| `.hairline-v`     | Same, vertical                                              |
+| `.gold-text`      | Gradient-text for one or two display words                  |
+| `.gold-shine`     | Animated gold shine — use sparingly                         |
+| `.noise::before`  | Full-bleed SVG turbulence overlay (desktop only)            |
+| `.frame`          | Corner-bracket frame (needs `<.frame-tr/>` `<.frame-bl/>`)  |
+| `.btn-gold`       | Primary CTA — gold border, gradient sweep on hover          |
+| `.btn-ghost`      | Secondary CTA — mono caps, widens on hover                  |
+| `.input-field`    | Bottom-border-only input, lights gold on focus              |
+| `.reveal`         | Animation hook for `<Reveal>` (phase 07)                    |
+| `.fade-up`        | One-shot CSS-driven entry — used inside ScrollVideo hero    |
+| `.glow-hover`     | Hover ring + soft gold drop shadow                          |
+| `.vertical`       | `writing-mode: vertical-rl` rotated 180                     |
+| `.serif-nums`     | `font-variant-numeric: tabular-nums`                        |
+| `.blink`          | 1.2s steps blink                                            |
+| `.marquee`        | 50s linear `translateX(-50%)` loop                          |
+
+### Mobile drops the noise overlay
+
+The `.noise::before` element is `position: fixed` + `mix-blend-mode:
+overlay`, which forces a full-viewport composite every scroll frame.
+A `@media (max-width: 767px)` rule sets `display: none` on it. This is
+load-bearing — without it, touch scroll stutters.
 
 ## SmoothScroll
 
