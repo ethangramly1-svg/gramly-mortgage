@@ -91,7 +91,7 @@ export default function PortfolioStack({ items }: { items: Item[] }) {
 function Card({ item, i, reverse }: { item: Item; i: number; reverse: boolean }) {
   return (
     <div className="w-full max-w-[1700px] mx-auto px-5 md:px-12">
-      <Link href={`/${item.slug}`} className="group block relative">
+      <Link href={`/programs/${item.slug}`} className="group block relative">
         {/* HUGE ghost number — alternating side, brightens on hover */}
         <span
           className={`pointer-events-none select-none absolute font-display font-light text-[26vw] md:text-[22vw] leading-none tracking-[-0.06em] text-gold/[0.05] group-hover:text-gold/[0.09] transition-colors duration-700 ${

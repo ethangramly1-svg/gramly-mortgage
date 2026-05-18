@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 07 — Connective tissue (Reveal, Navbar,
-Footer, Correspondence, Carousel)**, complete. Phases 08–10 fill in
-detail pages, Clerk auth + Resend wiring, and Turso persistence.
+We are currently at **phase 08 — Detail pages (dossier, index, about,
+contact)**, complete. Phases 09–10 fill in Clerk auth + Resend wiring
+and Turso persistence.
 
 ## Stack
 
@@ -344,6 +344,51 @@ unscrollable on a trackpad.
 Footer's bottom-right shows `NMLS 1984074`. This is required by
 California and Nevada lender-disclosure rules — it's not stylistic.
 If the broker's NMLS changes, update `app/components/Footer.tsx`.
+
+## Detail pages (phase 08)
+
+Four secondary routes under `app/(site)/`:
+
+| Route                       | Page                                | Purpose                          |
+|-----------------------------|-------------------------------------|----------------------------------|
+| `/programs`                 | `programs/page.tsx`                 | Index — grid of all 5 programs   |
+| `/programs/[slug]`          | `programs/[slug]/page.tsx`          | Dossier per program (5 static)   |
+| `/about`                    | `about/page.tsx`                    | Practice / bio / origin          |
+| `/contact`                  | `contact/page.tsx`                  | Standalone contact form          |
+
+### URL convention
+
+Items live at `/programs/{slug}` (e.g. `/programs/jumbo`). Phase 06's
+`/${slug}` convention was corrected here — the index page needs a
+folder, and `/programs/` is the cleaner namespace anyway. Three
+existing files were updated to match: `Navbar.tsx`, `Footer.tsx`,
+and `PortfolioStack.tsx` card hrefs.
+
+### Static generation
+
+Dossier pages use `generateStaticParams()` to pre-render all 5
+slugs at build time. `next build` reports `● (SSG)` for the
+`[slug]` route group, and Vercel ships them as static HTML — same
+serving model as a static-site generator.
+
+### Form is offline until phase 09
+
+The contact form is now duplicated in **three places**:
+`Correspondence` (home), the dossier `#correspondence` section, and
+`/contact`. All three call the same `<ContactForm />` component;
+phase 09 replaces the `console.log` body of `handleSubmit` with a
+single `fetch("/api/contact", ...)` call. Updating one component
+updates all three call sites.
+
+### Items.ts is now narrative-rich
+
+Each `Item` carries a `description: string[]` of 2–3 paragraphs and
+a `region` field. Dossier pages render these as the "§ Notes" block
+and inside the "§ Specifications" grid respectively. The paragraphs
+are written in a real broker's voice and reviewed for compliance —
+no rate guarantees, no "lowest rates" claims, no implied suitability.
+Replace them through `app/lib/items.ts` (not on the dossier pages
+themselves).
 
 ## SmoothScroll
 

@@ -8,13 +8,13 @@ import { ITEMS } from "@/app/lib/items";
 
 // Derived from items so the navbar's "Programs" active-state picks up
 // any new program slug automatically.
-const programSlugs = ITEMS.map((i) => `/${i.slug}`);
+const programSlugs = ITEMS.map((i) => `/programs/${i.slug}`);
 
 const links = [
-  { href: "/",            label: "Index",    roman: "i",   match: (p: string) => p === "/" },
-  { href: "/#collection", label: "Programs", roman: "ii",  match: (p: string) => programSlugs.includes(p) },
-  { href: "/about",       label: "Practice", roman: "iii", match: (p: string) => p === "/about" },
-  { href: "/contact",     label: "Contact",  roman: "iv",  match: (p: string) => p === "/contact" },
+  { href: "/",         label: "Index",    roman: "i",   match: (p: string) => p === "/" },
+  { href: "/programs", label: "Programs", roman: "ii",  match: (p: string) => p === "/programs" || programSlugs.includes(p) },
+  { href: "/about",    label: "Practice", roman: "iii", match: (p: string) => p === "/about" },
+  { href: "/contact",  label: "Contact",  roman: "iv",  match: (p: string) => p === "/contact" },
 ];
 
 export default function Navbar() {

@@ -3,7 +3,7 @@ import FooterMarquee from "./FooterMarquee";
 
 const pages: Array<[string, string]> = [
   ["/", "Index"],
-  ["/#collection", "Programs"],
+  ["/programs", "Programs"],
   ["/about", "Practice"],
   ["/contact", "Contact"],
 ];
