@@ -94,8 +94,6 @@ If you need a "different scene" you build a new component in
 | `--ink-soft`     | `#2d3a52` | Secondary text                                     |
 | `--brass`        | `#c8a047` | Primary gold accent — buttons, links, scene gold   |
 | `--brass-deep`   | `#9a7830` | Hover / pressed                                    |
-| `--sky-top`      | `#050816` | Legacy dark-sky top (kept for SceneSky)            |
-| `--sky-bottom`   | `#0d1530` | Legacy dark-sky bottom (kept for SceneSky)         |
 | `--ink-dark`     | `#f6f0e4` | Text on dark scenes (same as paper for cohesion)   |
 | `--cream`        | `#f7ecd6` | Warm cream for cinematic interiors (beats 1, 3)    |
 | `--cream-deep`   | `#e8d6ad` | Deeper cream for shadows / undersides              |
@@ -107,10 +105,11 @@ If you need a "different scene" you build a new component in
 | `--sky-warm-haze`| `#fde7c4` | Cloud / haze tint                                  |
 
 **The cinematic is warm: golden-hour sky, white-and-gold penthouses.**
-The original "Private Bank" dark palette is preserved as legacy tokens
-on `SceneSky` only until that scene is reworked. The rest of the site
-(About, Purchase, etc.) stays in the existing `--paper` / `--ink` /
-`--brass` palette.
+All four beats live in the warm palette now. The original "Private
+Bank" dark sky tokens (`skyTop`, `skyBottom`, `ambient`, `groundDim`)
+were removed from `palette.ts` once SceneSky was reworked. The rest
+of the site (About, Purchase, etc.) stays in the existing `--paper` /
+`--ink` / `--brass` palette.
 
 ## Cinematic journey (4 beats)
 

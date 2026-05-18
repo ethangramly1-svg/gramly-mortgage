@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Stars, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { getScroll, smoothstep } from "../../../lib/scroll";
 import { sceneSkyLocalProgress } from "../../../lib/pageBounds";
@@ -87,9 +87,9 @@ export default function SceneSky() {
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        uTop: { value: new THREE.Color(palette.skyTop) },
-        uBottom: { value: new THREE.Color(palette.skyBottom) },
-        uHorizon: { value: new THREE.Color(palette.brass) },
+        uTop: { value: new THREE.Color(palette.skyWarmTop) },
+        uBottom: { value: new THREE.Color(palette.skyWarmMid) },
+        uHorizon: { value: new THREE.Color(palette.goldGlow) },
         uHorizonStrength: { value: 0.0 }
       },
       vertexShader: /* glsl */ `
@@ -139,7 +139,7 @@ export default function SceneSky() {
   }, []);
 
   const particleMaterial = useMemo(() => new THREE.PointsMaterial({
-    color: new THREE.Color(palette.brass),
+    color: new THREE.Color(palette.goldGlow),
     size: 0.45,
     transparent: true,
     opacity: 0.55,
@@ -223,51 +223,52 @@ export default function SceneSky() {
     return buildings;
   }, []);
 
-  // 5 facade material variants
+  // 5 facade variants — golden-hour lit, not self-glowing. Emissives near zero;
+  // the warm directional light + ambient do the heavy work.
   const facadeMats = useMemo(() => [
     // 0: cream casino (Bellagio-adjacent)
     new THREE.MeshStandardMaterial({
-      color: 0xb9a280, metalness: 0.05, roughness: 0.75,
-      emissive: new THREE.Color("#4a3a22"), emissiveIntensity: 0.7
+      color: 0xd9c4a0, metalness: 0.05, roughness: 0.75,
+      emissive: new THREE.Color("#3a2f1c"), emissiveIntensity: 0.08
     }),
     // 1: bronze hotel tower (Wynn-adjacent)
     new THREE.MeshStandardMaterial({
-      color: 0x6a4a18, metalness: 0.85, roughness: 0.28,
-      emissive: new THREE.Color("#a87830"), emissiveIntensity: 1.0
+      color: 0xa07a3a, metalness: 0.85, roughness: 0.28,
+      emissive: new THREE.Color("#7a5820"), emissiveIntensity: 0.08
     }),
-    // 2: dark glass modern condo (Aria-adjacent)
+    // 2: warm glass modern condo (Aria → warm twilight reflection)
     new THREE.MeshStandardMaterial({
-      color: 0x162030, metalness: 0.9, roughness: 0.16,
-      emissive: new THREE.Color("#1a2640"), emissiveIntensity: 0.35
+      color: 0x6a7a90, metalness: 0.9, roughness: 0.18,
+      emissive: new THREE.Color("#5a4830"), emissiveIntensity: 0.05
     }),
     // 3: warm stone resort (Paris/Caesars-adjacent)
     new THREE.MeshStandardMaterial({
-      color: 0x7e5630, metalness: 0.1, roughness: 0.7,
-      emissive: new THREE.Color("#3e2810"), emissiveIntensity: 0.85
+      color: 0xa07852, metalness: 0.1, roughness: 0.7,
+      emissive: new THREE.Color("#3e2810"), emissiveIntensity: 0.06
     }),
-    // 4: cool slate hotel
+    // 4: warm slate hotel
     new THREE.MeshStandardMaterial({
-      color: 0x2a3040, metalness: 0.55, roughness: 0.4,
-      emissive: new THREE.Color("#1a2436"), emissiveIntensity: 0.55
+      color: 0x807870, metalness: 0.55, roughness: 0.4,
+      emissive: new THREE.Color("#4a3826"), emissiveIntensity: 0.06
     })
   ], []);
 
   const slabMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: 0x141420, metalness: 0.4, roughness: 0.5,
-    emissive: new THREE.Color("#0a0a14"), emissiveIntensity: 0.3
+    color: 0x4a3e2e, metalness: 0.4, roughness: 0.5,
+    emissive: new THREE.Color("#2a2218"), emissiveIntensity: 0.05
   }), []);
   const crownMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: 0x4a3622, metalness: 0.85, roughness: 0.3,
-    emissive: new THREE.Color("#8a6020"), emissiveIntensity: 1.2
+    color: 0x8a6a3a, metalness: 0.85, roughness: 0.3,
+    emissive: new THREE.Color("#5a4220"), emissiveIntensity: 0.12
   }), []);
   const antennaMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: 0x52525a, metalness: 0.8, roughness: 0.3
+    color: 0x9a8a78, metalness: 0.8, roughness: 0.3
   }), []);
 
-  // Window materials — warm + cool
+  // Window materials — golden-hour reflections rather than lit interiors.
   const windowMats = useMemo(() => [
-    new THREE.MeshBasicMaterial({ color: new THREE.Color("#f0c46a"), transparent: true, opacity: 0.93 }),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color("#a8d0ff"), transparent: true, opacity: 0.85 })
+    new THREE.MeshBasicMaterial({ color: new THREE.Color("#f0c870"), transparent: true, opacity: 0.65 }),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color("#f5d8a8"), transparent: true, opacity: 0.55 })
   ], []);
 
   // Neon strip accents — a handful of saturated colored window lights
@@ -290,14 +291,14 @@ export default function SceneSky() {
   }, []);
 
   const mountainMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: 0x141422,
+    color: 0xa07a55,
     metalness: 0.0,
     roughness: 1.0,
     transparent: true,
     opacity: 0.85
   }), []);
   const desertGroundMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: 0x0c0c14,
+    color: 0xc89770,
     roughness: 1.0
   }), []);
 
@@ -326,7 +327,7 @@ export default function SceneSky() {
     transparent: true,
     opacity: 1,
     depthWrite: false,
-    color: new THREE.Color("#aab4d4"),
+    color: new THREE.Color(palette.skyWarmHaze),
     side: THREE.DoubleSide
   }), [cloudTexture]);
 
@@ -422,14 +423,11 @@ export default function SceneSky() {
         <primitive object={skyMaterial} ref={skyMatRef} attach="material" />
       </mesh>
 
-      {/* Lights */}
-      <ambientLight ref={ambientRef} color={palette.ambient} intensity={0.15} />
-      <directionalLight color={palette.moon} intensity={0.8} position={[-200, 250, -50]} />
-      <hemisphereLight ref={hemiRef} args={[palette.skyBottom, palette.groundDim, 0.4]} />
-      <fog attach="fog" args={[palette.skyBottom, 50, 400]} />
-
-      {/* Stars */}
-      <Stars radius={400} depth={120} count={150} factor={3} saturation={0} fade speed={0.3} />
+      {/* Lights — golden-hour rig: warm haze ambient, low-angle sun, warm bounce */}
+      <ambientLight ref={ambientRef} color={palette.skyWarmHaze} intensity={0.4} />
+      <directionalLight color={palette.moon} intensity={1.3} position={[-200, 100, 80]} />
+      <hemisphereLight ref={hemiRef} args={[palette.skyWarmTop, palette.creamDeep, 0.6]} />
+      <fog attach="fog" args={[palette.skyWarmHaze, 80, 500]} />
 
       {/* Clouds — procedural soft sprites, no asset fetch */}
       <group ref={cloudsGroupRef}>
@@ -603,7 +601,7 @@ export default function SceneSky() {
       <mesh ref={horizonGlowRef} position={[0, 6, -198]}>
         <planeGeometry args={[700, 80]} />
         <meshBasicMaterial
-          color={palette.brass}
+          color={palette.goldGlow}
           transparent
           opacity={0.0}
           depthWrite={false}
