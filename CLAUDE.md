@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 04 — ScrollVideo hero**, complete.
-Phases 05–10 fill in CollectionOverture, PortfolioStack, navbar/footer,
-Clerk auth, Resend forms, and Turso persistence — in that order.
+We are currently at **phase 05 — CollectionOverture**, complete.
+Phases 06–10 fill in PortfolioStack, navbar/footer, Clerk auth,
+Resend forms, and Turso persistence — in that order.
 
 ## Stack
 
@@ -202,6 +202,53 @@ Every per-frame DOM mutation goes through a ref + cached "last applied
 value" check, so duplicate writes get short-circuited. The only React
 state lives on the loading splash, which renders once and then never
 again.
+
+## CollectionOverture (phase 05)
+
+`app/components/CollectionOverture.tsx` is the second beat of the home
+page — a pinned aperture-reveal transition between `<ScrollVideo>` and
+`<PortfolioStack>`. Mounted directly after ScrollVideo in
+`app/(site)/page.tsx`.
+
+### Behavior
+
+- **Desktop (≥ 768px):** GSAP `matchMedia` gates a timeline that pins
+  the section for `+=220%` of scroll. The image clip-path animates
+  from a horizontal slit (`inset(49% 18% 49% 18%)`) to full-bleed
+  (`inset(0%)`), the image scales `1.5 → 1.02`, two ghost words
+  ("LENDING" + italic "without friction") drift in opposite directions,
+  eyebrow rules scale-X in, corner brackets stagger-fade, and a
+  one-shot horizontal gold flare blinks the moment the slit opens.
+- **Mobile (< 768px):** the timeline does not run. The section renders
+  statically — image full-bleed, caption visible below, no pin.
+
+### Load-bearing details
+
+1. **Outer `<div className="relative">` wrapper.** GSAP's pin-spacer
+   wraps the section once it pins. On route change, React tries to
+   `removeChild` the section from its expected parent and throws
+   "Node not a child of this node" unless that parent is an
+   invariant React-owned wrapper.
+2. **`md:` prefix on every initial-hidden Tailwind class.** Every
+   `opacity-0`, `scale-x-0`, `[clip-path:inset(...)]` only applies at
+   md+ so the mobile fallback never shows an invisible image.
+3. **`gsap.matchMedia` + `ctx.revert()` cleanup.** Tearing down the
+   timeline on unmount or matchMedia mismatch (e.g. resizing to mobile
+   mid-page) avoids ScrollTrigger orphan instances. **Do not** swap
+   this pattern for `@gsap/react`'s `useGSAP()` hook — it abstracts
+   the cleanup we need.
+
+### What plays into what
+
+| Placeholder concept       | Mortgage realisation         |
+|---------------------------|------------------------------|
+| Section headline          | "Lending, refined"           |
+| Ghost word (primary)      | LENDING                      |
+| Ghost word (echo, italic) | without friction             |
+| Caption (strong)          | "A modern lender."           |
+| Caption (soft, bone/45)   | "Las Vegas."                 |
+| Right-side meta           | "36.169° N · 115.140° W"     |
+| Signature image           | `/assets/penthouse-2.jpg`    |
 
 ## SmoothScroll
 

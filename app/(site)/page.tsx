@@ -1,10 +1,11 @@
 import ScrollVideo from "@/app/components/ScrollVideo";
+import CollectionOverture from "@/app/components/CollectionOverture";
 
 export default function Home() {
   return (
     <>
       <ScrollVideo heightVh={220} />
-      {/* Phase 05 adds CollectionOverture here */}
+      <CollectionOverture />
       {/* Phase 06 adds PortfolioStack here */}
     </>
   );
