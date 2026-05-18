@@ -8,6 +8,7 @@ import ScenePenthouseInterior from "./scenes/ScenePenthouseInterior";
 import SceneTransitSky from "./scenes/SceneTransitSky";
 import ScenePenthouseFinale from "./scenes/ScenePenthouseFinale";
 import BeatGate from "./BeatGate";
+import CameraController from "./CameraController";
 
 const CA_OFFSET = new THREE.Vector2(0.001, 0.001);
 
@@ -47,6 +48,7 @@ export default function CanvasRoot() {
           <BeatGate index={3}>
             <ScenePenthouseFinale />
           </BeatGate>
+          <CameraController />
         </Suspense>
 
         <EffectComposer multisampling={0}>

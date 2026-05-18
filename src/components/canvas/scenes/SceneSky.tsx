@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import { Stars, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { easeInOutCubic, getScroll, smoothstep } from "../../../lib/scroll";
+import { getScroll, smoothstep } from "../../../lib/scroll";
 import { sceneSkyLocalProgress } from "../../../lib/pageBounds";
 import { palette } from "../../../lib/palette";
 import VegasLandmarks from "./VegasLandmarks";
@@ -69,7 +69,6 @@ function HeroTower({ position, scale = 1, opacity = 1 }: { position: [number, nu
  * and reveals copy in sync.
  */
 export default function SceneSky() {
-  const { camera } = useThree();
 
   // Refs
   const skyMatRef = useRef<THREE.ShaderMaterial>(null);
@@ -339,25 +338,14 @@ export default function SceneSky() {
     { x:  70, y: 95,  z: -25, w: 70, h: 26, rot:  0.10, opacity: 0.42 }
   ], []);
   // -------------------------------------------------------------------
-  // Per-frame update — pulls scroll progress, drives everything.
+  // Per-frame update — drives sky shader, cloud drift, particles, skyline.
+  // Camera motion is owned by `CameraController`; this scene no longer
+  // touches camera.position / camera.lookAt.
   // -------------------------------------------------------------------
-  const camStart = useMemo(() => new THREE.Vector3(0, 200, 0), []);
-  const camEnd = useMemo(() => new THREE.Vector3(0, 80, 30), []);
-  const lookStart = useMemo(() => new THREE.Vector3(0, 150, -200), []);
-  const lookEnd = useMemo(() => new THREE.Vector3(0, 30, -150), []);
-  const tmpVec = useMemo(() => new THREE.Vector3(), []);
-  const tmpLook = useMemo(() => new THREE.Vector3(), []);
 
   useFrame((_, delta) => {
     const { scrollY, vh } = getScroll();
     const localRaw = sceneSkyLocalProgress(scrollY, vh);
-    const local = easeInOutCubic(localRaw);
-
-    // Camera descends along the rail
-    tmpVec.lerpVectors(camStart, camEnd, local);
-    tmpLook.lerpVectors(lookStart, lookEnd, local);
-    camera.position.copy(tmpVec);
-    camera.lookAt(tmpLook);
 
     if (skyMatRef.current) {
       const u = skyMatRef.current.uniforms.uHorizonStrength;
