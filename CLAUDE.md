@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 06 — PortfolioStack**, complete.
-Phases 07–10 fill in navbar/footer, Clerk auth, Resend forms, and
-Turso persistence — in that order.
+We are currently at **phase 07 — Connective tissue (Reveal, Navbar,
+Footer, Correspondence, Carousel)**, complete. Phases 08–10 fill in
+detail pages, Clerk auth + Resend wiring, and Turso persistence.
 
 ## Stack
 
@@ -298,6 +298,52 @@ positions: location with leading hairline, large display name,
 subtitle, three-metric row with a hairline top + bottom, and the
 "Guide price + Dossier →" pairing. **Do not move the price/Dossier
 pairing.** It's the conversion moment.
+
+## Connective tissue (phase 07)
+
+Five small components that make the site feel like a site:
+
+| Component                          | Role                                                    |
+|------------------------------------|---------------------------------------------------------|
+| `app/components/Reveal.tsx`        | IntersectionObserver fade-up. Wrap blocks, not inlines  |
+| `app/components/Navbar.tsx`        | Fixed top, scroll-aware, mobile drawer, locks body      |
+| `app/components/Footer.tsx`        | Brand colophon + Pages + Reach + copyright row          |
+| `app/components/FooterMarquee.tsx` | Horizontal brand-wordmark band above the footer         |
+| `app/components/Correspondence.tsx`| Home-page contact section (§ v)                         |
+| `app/components/ContactForm.tsx`   | Form used in Correspondence + the /contact page         |
+| `app/components/Carousel.tsx`      | Horizontal snap-scroll gallery (used by phase 08)       |
+
+### Navbar / Programs active-state derives from items.ts
+
+The navbar's "Programs" link is active when the user is on `/${slug}`
+for any item in `ITEMS`. The slug list is derived at import time:
+
+```ts
+const programSlugs = ITEMS.map((i) => `/${i.slug}`);
+```
+
+Add a 6th program tomorrow, navbar active-state picks it up. No
+manual sync.
+
+### Contact form is offline until phase 09
+
+`ContactForm.tsx` currently `console.log`s submissions and shows a
+"Thank you" frame. Phase 09 replaces the body of `handleSubmit` with
+a `fetch("/api/contact", ...)` call. The form fields, validation,
+and "Received" UI stay; only the network call changes.
+
+### Carousel honors data-lenis-prevent
+
+The carousel's scroller has `data-lenis-prevent` so Lenis (phase 02)
+doesn't intercept horizontal wheel events. Without that attribute,
+Lenis translates side-scroll into vertical and the carousel becomes
+unscrollable on a trackpad.
+
+### Compliance footnote
+
+Footer's bottom-right shows `NMLS 1984074`. This is required by
+California and Nevada lender-disclosure rules — it's not stylistic.
+If the broker's NMLS changes, update `app/components/Footer.tsx`.
 
 ## SmoothScroll
 

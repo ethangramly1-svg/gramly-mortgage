@@ -1,6 +1,7 @@
 import ScrollVideo from "@/app/components/ScrollVideo";
 import CollectionOverture from "@/app/components/CollectionOverture";
 import PortfolioStack from "@/app/components/PortfolioStack";
+import Correspondence from "@/app/components/Correspondence";
 import { ITEMS } from "@/app/lib/items";
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <Correspondence />
     </>
   );
 }
