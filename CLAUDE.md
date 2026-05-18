@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 03 — Design Tokens & Type Scale**, complete.
-Phases 04–10 fill in hero video, portfolio stack, navbar/footer, Clerk
-auth, Resend forms, and Turso persistence — in that order.
+We are currently at **phase 04 — ScrollVideo hero**, complete.
+Phases 05–10 fill in CollectionOverture, PortfolioStack, navbar/footer,
+Clerk auth, Resend forms, and Turso persistence — in that order.
 
 ## Stack
 
@@ -153,6 +153,55 @@ The `.noise::before` element is `position: fixed` + `mix-blend-mode:
 overlay`, which forces a full-viewport composite every scroll frame.
 A `@media (max-width: 767px)` rule sets `display: none` on it. This is
 load-bearing — without it, touch scroll stutters.
+
+## ScrollVideo hero (phase 04)
+
+`app/components/ScrollVideo.tsx` is the cinematic hero. It paints a
+sequence of pre-decoded WebP frames onto a `<canvas>`, with the frame
+index driven by scroll position. Mounted as the first element of
+`app/(site)/page.tsx`:
+
+```tsx
+<ScrollVideo heightVh={220} />
+```
+
+### Why canvas, not `<video>`
+
+`<video>` can't be scrubbed reliably — Safari refuses to seek inside
+HLS chunks during scroll, Chrome decodes asynchronously and falls
+behind. Pre-decoded frames painted to canvas scrub at 120Hz because
+the paint itself is essentially free.
+
+### Frame tiers
+
+The component picks one of three frame folders based on viewport +
+DPR at mount time:
+
+| Tier         | Trigger                       | Folder                       | Count |
+|--------------|-------------------------------|------------------------------|-------|
+| `mobile`     | viewport width < 768          | `public/frames/mobile/`      | 31 (every 2nd)  |
+| `desktop-1x` | width ≥ 768 and `w*dpr < 2000` | `public/frames/desktop-1x/`  | 61    |
+| `desktop-2x` | width ≥ 768 and `w*dpr ≥ 2000` | `public/frames/desktop-2x/`  | 61    |
+
+Mobile also collapses the spacer from `heightVh` (default 220) to
+160vh — same animation in less scroll, less bandwidth.
+
+Frames are generated from `docs/cinematic-reference.md`'s source video
+via ffmpeg → JPG → cwebp. Regenerate with:
+
+```bash
+brew install webp                  # if cwebp missing
+brew install ffmpeg                # if ffmpeg missing
+# then run the extraction loop documented in the phase-04 commit
+```
+
+### Hot-path discipline
+
+The scroll handler runs ~60×/sec. **It never calls `setState`.**
+Every per-frame DOM mutation goes through a ref + cached "last applied
+value" check, so duplicate writes get short-circuited. The only React
+state lives on the loading splash, which renders once and then never
+again.
 
 ## SmoothScroll
 

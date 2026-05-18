@@ -1,0 +1,359 @@
+"use client";
+
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+
+const FRAME_COUNT = 61;
+const ANIMATION_END = 0.82;
+
+type ScrollVideoProps = {
+  heightVh?: number;
+  framesBase?: string;
+  children?: ReactNode;
+};
+
+type Tier = "mobile" | "desktop-1x" | "desktop-2x";
+
+function pickTier(): Tier {
+  const w = window.innerWidth;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (w < 768) return "mobile";
+  return w * dpr >= 2000 ? "desktop-2x" : "desktop-1x";
+}
+
+function framePath(base: string, tier: Tier, frameNum: number) {
+  return `/${base}/${tier}/${String(frameNum).padStart(3, "0")}.webp`;
+}
+
+export default function ScrollVideo({
+  heightVh = 220,
+  framesBase = "frames",
+  children,
+}: ScrollVideoProps) {
+  // DOM refs — every per-frame write goes through one of these.
+  const spacerRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const titleWrapRef = useRef<HTMLDivElement | null>(null);
+  const statusWrapRef = useRef<HTMLDivElement | null>(null);
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const lastFrameRef = useRef(-1);
+  const totalFramesRef = useRef(FRAME_COUNT);
+
+  // "last applied DOM value" cache — skip writes when nothing visibly changed.
+  const lastTitleOpRef = useRef(-1);
+  const lastFadeOpRef = useRef(-1);
+  const lastProgressRef = useRef(-1);
+  const lastHiddenRef = useRef(false);
+
+  // State only for things that drive React renders (loading splash).
+  const [loaded, setLoaded] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [totalFrames, setTotalFrames] = useState(FRAME_COUNT);
+  const [effectiveHeight, setEffectiveHeight] = useState(heightVh);
+
+  useEffect(() => {
+    const tier = pickTier();
+    const isMobile = tier === "mobile";
+    const frameStep = isMobile ? 2 : 1;
+    const frameCount = Math.ceil(FRAME_COUNT / frameStep);
+
+    totalFramesRef.current = frameCount;
+    setTotalFrames(frameCount);
+    if (isMobile) setEffectiveHeight(160);
+
+    const drawFrame = (idx: number) => {
+      const canvas = canvasRef.current;
+      const img = imagesRef.current[idx];
+      if (!canvas || !img || !img.complete || !img.naturalWidth) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      const needsResize =
+        canvas.width !== Math.round(w * dpr) ||
+        canvas.height !== Math.round(h * dpr);
+      if (needsResize) {
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(h * dpr);
+        lastFrameRef.current = -1;
+      }
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = isMobile ? "medium" : "high";
+
+      if (lastFrameRef.current === -1) {
+        ctx.fillStyle = "#0f0b06";
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      const iw = img.naturalWidth;
+      const ih = img.naturalHeight;
+      const scale = Math.max(w / iw, h / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      lastFrameRef.current = idx;
+    };
+
+    // Preload every frame the tier needs. First 8 get fetchPriority high
+    // so the opening shot paints before the rest of the strip catches up.
+    const imgs: HTMLImageElement[] = [];
+    let done = 0;
+    for (let i = 0; i < frameCount; i++) {
+      const frameNum = i * frameStep + 1;
+      const img = new Image();
+      if (i < 8) (img as unknown as { fetchPriority: string }).fetchPriority = "high";
+      // attach onload BEFORE src so cached responses still fire.
+      img.onload = () => {
+        done += 1;
+        setLoaded(done);
+        // Gate ready on frame 0 specifically — not whichever loads first.
+        // If we used "first to load", drawFrame(0) could fire while frame 0
+        // is still loading, bail out, and never retry.
+        if (i === 0) {
+          setReady(true);
+          requestAnimationFrame(() => drawFrame(0));
+        }
+      };
+      img.onerror = () => {
+        done += 1;
+        setLoaded(done);
+      };
+      img.src = framePath(framesBase, tier, frameNum);
+      imgs.push(img);
+    }
+    imagesRef.current = imgs;
+
+    const onScroll = () => {
+      if (rafRef.current != null) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        const spacer = spacerRef.current;
+        if (!spacer) return;
+        const rect = spacer.getBoundingClientRect();
+        const total = spacer.offsetHeight;
+        const scrolled = Math.max(0, Math.min(total, -rect.top));
+        const t = total > 0 ? scrolled / total : 0;
+
+        // Scrub portion (0..ANIMATION_END maps to 0..1 of frames).
+        const animP = Math.min(1, t / ANIMATION_END);
+        const fc = totalFramesRef.current;
+        const frame = Math.min(fc - 1, Math.max(0, Math.round(animP * (fc - 1))));
+        if (frame !== lastFrameRef.current) drawFrame(frame);
+
+        // Tail portion (ANIMATION_END..1) fades the whole overlay out.
+        const fo = Math.max(0, Math.min(1, (t - ANIMATION_END) / (1 - ANIMATION_END)));
+
+        // Title fade-up follows the first 45% of the scrub.
+        const titleP = Math.min(1, animP / 0.45);
+        const titleOpacity = 1 - titleP;
+        const titleShift = titleP * -60;
+
+        const titleOpQ = Math.round(titleOpacity * 1000);
+        if (titleOpQ !== lastTitleOpRef.current) {
+          lastTitleOpRef.current = titleOpQ;
+          const title = titleWrapRef.current;
+          if (title) {
+            title.style.opacity = String(titleOpacity);
+            title.style.transform = `translateY(${titleShift}px)`;
+          }
+          const status = statusWrapRef.current;
+          if (status) status.style.opacity = String(titleOpacity);
+        }
+
+        const progressQ = Math.round(animP * 1000);
+        if (progressQ !== lastProgressRef.current) {
+          lastProgressRef.current = progressQ;
+          const bar = progressBarRef.current;
+          if (bar) bar.style.width = `${animP * 100}%`;
+        }
+
+        const fadeQ = Math.round(fo * 1000);
+        if (fadeQ !== lastFadeOpRef.current) {
+          lastFadeOpRef.current = fadeQ;
+          const overlay = overlayRef.current;
+          if (overlay) {
+            overlay.style.opacity = String(1 - fo);
+            overlay.style.pointerEvents = fo > 0.5 ? "none" : "auto";
+            const shouldHide = fo >= 0.999;
+            if (shouldHide !== lastHiddenRef.current) {
+              lastHiddenRef.current = shouldHide;
+              overlay.style.visibility = shouldHide ? "hidden" : "visible";
+            }
+          }
+        }
+      });
+    };
+
+    const onResize = () => {
+      drawFrame(lastFrameRef.current >= 0 ? lastFrameRef.current : 0);
+      onScroll();
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    onScroll();
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      // Release decoded image cache for GC.
+      imagesRef.current.forEach((img) => {
+        img.onload = null;
+        img.onerror = null;
+      });
+      imagesRef.current = [];
+    };
+  }, [framesBase]);
+
+  return (
+    <>
+      <div
+        ref={spacerRef}
+        style={{ height: `${effectiveHeight}vh` }}
+        className="relative bg-ink"
+        aria-hidden
+      />
+
+      <div
+        ref={overlayRef}
+        className="noise"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 20,
+          opacity: 1,
+          pointerEvents: "auto",
+          visibility: "visible",
+          transition: "opacity 0.05s linear, visibility 0s linear",
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 block"
+          style={{ width: "100%", height: "100%" }}
+          aria-hidden
+        />
+
+        {/* Filmic scrims — two soft layers. */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(15,11,6,0.55) 0%, rgba(15,11,6,0.05) 28%, rgba(15,11,6,0.00) 55%, rgba(15,11,6,0.45) 82%, rgba(15,11,6,0.92) 100%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 mix-blend-overlay"
+          style={{
+            background:
+              "radial-gradient(80% 55% at 50% 115%, rgba(212, 180, 106, 0.22), transparent 65%)",
+          }}
+        />
+
+        {!ready && (
+          <div className="absolute inset-0 flex items-center justify-center bg-ink z-40">
+            <div className="text-center">
+              <div className="font-mono text-[0.65rem] uppercase tracking-[0.4em] text-gold/80 mb-4">
+                Rendering the film
+              </div>
+              <div className="h-px w-48 bg-line relative overflow-hidden mx-auto">
+                <div
+                  className="absolute top-0 left-0 h-full bg-gold transition-[width]"
+                  style={{ width: `${(loaded / totalFrames) * 100}%` }}
+                />
+              </div>
+              <div className="mt-3 font-mono text-[0.55rem] tracking-[0.3em] text-bone/40">
+                {String(Math.round((loaded / totalFrames) * 100)).padStart(2, "0")} / 100
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* HERO TITLE */}
+        <div
+          ref={titleWrapRef}
+          className="absolute inset-0 flex flex-col justify-end items-center md:items-end px-6 md:px-14 lg:px-20 pb-14 md:pb-28 pointer-events-none"
+          style={{ opacity: 1, transform: "translateY(0px)", willChange: "opacity, transform" }}
+        >
+          <div className="pointer-events-auto text-center md:text-right w-full md:w-auto">
+            {children ?? <DefaultHeroCopy />}
+          </div>
+        </div>
+
+        {/* Bottom status bar */}
+        <div
+          ref={statusWrapRef}
+          className="pointer-events-none absolute bottom-0 inset-x-0 px-6 md:px-10 pb-5 md:pb-7"
+          style={{ opacity: 1 }}
+        >
+          <div className="flex items-end justify-between gap-6">
+            <div className="flex items-center gap-3 font-mono text-[0.56rem] uppercase tracking-[0.4em] text-white/45">
+              <span>Chris Gramly · Las Vegas</span>
+            </div>
+            <div className="relative h-px w-28 md:w-40 bg-white/15 overflow-hidden">
+              <div
+                ref={progressBarRef}
+                className="absolute inset-y-0 left-0 bg-white/50"
+                style={{ width: "0%" }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DefaultHeroCopy() {
+  return (
+    <>
+      <h1 className="fade-up font-display text-white tracking-[-0.04em] leading-[0.88]">
+        <span className="block font-extralight text-[clamp(3.4rem,13vw,8rem)] md:text-[9.5vw]">
+          Mortgages
+        </span>
+        <span className="block text-[clamp(2.4rem,9vw,5.5rem)] md:text-[7vw] mt-1 md:mt-2">
+          <span className="italic font-extralight">with</span>{" "}
+          <span className="font-semibold">clarity,</span>
+        </span>
+        <span className="block text-[clamp(1.9rem,7vw,4.4rem)] md:text-[5.6vw] mt-1 md:mt-3">
+          <span className="font-semibold">without</span>{" "}
+          <span className="italic font-extralight text-bone/65">the friction.</span>
+        </span>
+      </h1>
+
+      <div
+        className="fade-up flex items-center justify-center md:justify-end gap-3 mt-4 md:mt-6"
+        style={{ animationDelay: "0.18s" }}
+      >
+        <span className="font-mono text-[0.58rem] uppercase tracking-[0.28em] text-white/60">
+          Now offering
+        </span>
+        <span className="h-px w-4 bg-gold/60" />
+        <span className="font-mono text-[0.58rem] uppercase tracking-[0.28em] text-gold">
+          Jumbo Programs
+        </span>
+      </div>
+
+      <div
+        className="fade-up mt-5 md:mt-8 flex flex-col sm:flex-row items-center justify-center md:justify-end gap-3 md:gap-5"
+        style={{ animationDelay: "0.3s" }}
+      >
+        <Link href="/jumbo" className="btn-gold w-full sm:w-auto justify-center">
+          View Jumbo Programs →
+        </Link>
+        <a href="#collection" className="hidden md:inline-flex btn-ghost">
+          All programs ↗
+        </a>
+      </div>
+    </>
+  );
+}
