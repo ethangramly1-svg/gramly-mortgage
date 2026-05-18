@@ -4,13 +4,17 @@ import { EffectComposer, Bloom, Vignette, ChromaticAberration, Noise } from "@re
 import { BlendFunction } from "postprocessing";
 import * as THREE from "three";
 import SceneSky from "./scenes/SceneSky";
+import ScenePenthouseInterior from "./scenes/ScenePenthouseInterior";
+import SceneTransitSky from "./scenes/SceneTransitSky";
+import ScenePenthouseFinale from "./scenes/ScenePenthouseFinale";
+import BeatGate from "./BeatGate";
 
 const CA_OFFSET = new THREE.Vector2(0.001, 0.001);
 
 /**
- * Single, fixed-position <Canvas> for the entire site.
- * Currently hosts Scene 1 (SceneSky). Subsequent scenes mount inside
- * the same canvas and reveal themselves via the scroll context.
+ * Single, fixed-position <Canvas> for the entire site. Hosts the four
+ * cinematic beats, each wrapped in a BeatGate so only the active beat is
+ * visible. See `lib/pageBounds.ts` for beat indexes.
  */
 export default function CanvasRoot() {
   return (
@@ -31,7 +35,18 @@ export default function CanvasRoot() {
         }}
       >
         <Suspense fallback={null}>
-          <SceneSky />
+          <BeatGate index={0}>
+            <SceneSky />
+          </BeatGate>
+          <BeatGate index={1}>
+            <ScenePenthouseInterior />
+          </BeatGate>
+          <BeatGate index={2}>
+            <SceneTransitSky />
+          </BeatGate>
+          <BeatGate index={3}>
+            <ScenePenthouseFinale />
+          </BeatGate>
         </Suspense>
 
         <EffectComposer multisampling={0}>

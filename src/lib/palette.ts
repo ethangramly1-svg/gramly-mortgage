@@ -9,7 +9,15 @@ export const palette = {
   skyBottom: "#0b2b66",
   ambient:   "#1a2440",
   moon:      "#f0c674",
-  groundDim: "#1a1410"
+  groundDim: "#1a1410",
+  cream:        "#f7ecd6",
+  creamDeep:    "#e8d6ad",
+  marbleWhite:  "#fbf7ef",
+  goldGlow:     "#d9b063",
+  goldDeep:     "#a37b2d",
+  skyWarmTop:   "#f5d99a",
+  skyWarmMid:   "#e8b070",
+  skyWarmHaze:  "#fde7c4"
 } as const;
 
 export type PaletteKey = keyof typeof palette;

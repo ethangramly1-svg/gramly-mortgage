@@ -94,13 +94,43 @@ If you need a "different scene" you build a new component in
 | `--ink-soft`     | `#2d3a52` | Secondary text                                     |
 | `--brass`        | `#c8a047` | Primary gold accent — buttons, links, scene gold   |
 | `--brass-deep`   | `#9a7830` | Hover / pressed                                    |
-| `--sky-top`      | `#050816` | Scene 1 sky top                                    |
-| `--sky-bottom`   | `#0d1530` | Scene 1 sky bottom                                 |
+| `--sky-top`      | `#050816` | Legacy dark-sky top (kept for SceneSky)            |
+| `--sky-bottom`   | `#0d1530` | Legacy dark-sky bottom (kept for SceneSky)         |
 | `--ink-dark`     | `#f6f0e4` | Text on dark scenes (same as paper for cohesion)   |
+| `--cream`        | `#f7ecd6` | Warm cream for cinematic interiors (beats 1, 3)    |
+| `--cream-deep`   | `#e8d6ad` | Deeper cream for shadows / undersides              |
+| `--marble-white` | `#fbf7ef` | Penthouse exteriors, glass tint                    |
+| `--gold-glow`    | `#d9b063` | Cinematic gold accent (warmer than `--brass`)      |
+| `--gold-deep`    | `#a37b2d` | Inset gold, deep shadow                            |
+| `--sky-warm-top` | `#f5d99a` | Golden-hour sky top (beats 0, 2, 3)                |
+| `--sky-warm-mid` | `#e8b070` | Golden-hour mid-band                               |
+| `--sky-warm-haze`| `#fde7c4` | Cloud / haze tint                                  |
 
-**The cinematic scenes are dark. The rest of the site is warm and
-light.** Don't smear charcoal everywhere — the previous attempt did
-that and it felt oppressive.
+**The cinematic is warm: golden-hour sky, white-and-gold penthouses.**
+The original "Private Bank" dark palette is preserved as legacy tokens
+on `SceneSky` only until that scene is reworked. The rest of the site
+(About, Purchase, etc.) stays in the existing `--paper` / `--ink` /
+`--brass` palette.
+
+## Cinematic journey (4 beats)
+
+The hero pin in `lib/scroll.ts` runs for `+=400%`, giving four beats of
+100vh scroll each. `lib/pageBounds.ts → getBeat()` maps scrollY to:
+
+| Beat | Scene component         | What happens                                            |
+|------|-------------------------|---------------------------------------------------------|
+| 0    | `SceneSky`              | High in golden-hour sky; first white penthouse appears  |
+| 1    | `ScenePenthouseInterior`| Glide through gold-trimmed interior                     |
+| 2    | `SceneTransitSky`       | Exit, soar upward through warm clouds                   |
+| 3    | `ScenePenthouseFinale`  | Descend to face second penthouse on cliff               |
+
+Each scene is wrapped in `<BeatGate index={N}>` in `CanvasRoot`. The
+gate toggles `group.visible` via ref — no React re-render per frame.
+
+Reference video for the journey: see `docs/cinematic-reference.md`.
+
+`BeatHud` (bottom-right corner) shows the active beat + local progress
+during development. Delete it once the real scenes are in.
 
 ## Performance budget
 

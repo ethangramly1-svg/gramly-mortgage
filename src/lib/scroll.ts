@@ -46,15 +46,15 @@ export function initScroll() {
     listeners.forEach((fn) => fn(state));
   };
 
-  // Pin the hero spacer for 100vh of scroll so Scene 1 plays out fully
-  // before any subsequent section enters the viewport. About / Purchase
-  // / etc. are pushed down by that extra 100vh automatically.
+  // Pin the hero spacer for BEAT_COUNT × 100vh so the full 4-beat
+  // cinematic (sky → penthouse → sky → penthouse) plays out before
+  // About / Purchase / etc. enter the viewport.
   const heroSpacer = document.querySelector(".hero-spacer");
   if (heroSpacer) {
     heroPin = ScrollTrigger.create({
       trigger: heroSpacer,
       start: "top top",
-      end: "+=100%",
+      end: "+=400%",
       pin: true,
       pinSpacing: true,
       anticipatePin: 1

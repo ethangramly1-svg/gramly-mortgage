@@ -3,6 +3,7 @@ import { initScroll } from "./lib/scroll";
 import CanvasRoot from "./components/canvas/CanvasRoot";
 import MagneticCursor from "./components/ui/MagneticCursor";
 import HeroOverlay from "./components/site/HeroOverlay";
+import BeatHud from "./components/site/BeatHud";
 import Header from "./components/site/Header";
 import About from "./components/site/About";
 import Purchase from "./components/site/Purchase";
@@ -25,6 +26,7 @@ export default function App() {
 
       <CanvasRoot />
       <HeroOverlay />
+      <BeatHud />
 
       <div id="site">
         <Header />
