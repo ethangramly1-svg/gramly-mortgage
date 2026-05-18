@@ -25,7 +25,7 @@ export default function Footer() {
       ease: "power3.out",
       scrollTrigger: {
         trigger: footerRef.current,
-        start: "top 90%",
+        start: "top 92%",
         once: true,
       },
     });
@@ -36,7 +36,7 @@ export default function Footer() {
       ease: "power2.out",
       scrollTrigger: {
         trigger: ".legal",
-        start: "top 96%",
+        start: "top 98%",
         once: true,
       },
     });
@@ -45,7 +45,6 @@ export default function Footer() {
   return (
     <footer className="site-footer" ref={footerRef}>
       <div className="footer-grid">
-
         <div className="footer-col">
           <img className="footer-logo" src={LOGO} alt="Clear Modern Mortgage" />
           <p>Chris Gramly, Loan Officer</p>
@@ -94,7 +93,6 @@ export default function Footer() {
             Las Vegas, NV 89117
           </p>
         </div>
-
       </div>
 
       <div className="legal">

@@ -8,7 +8,7 @@ export default function About() {
     gsap.from(".about-anim", {
       opacity: 0,
       y: 36,
-      duration: 0.75,
+      duration: 0.8,
       stagger: 0.09,
       ease: "power3.out",
       scrollTrigger: {
@@ -21,7 +21,7 @@ export default function About() {
     gsap.from(".about-photo", {
       opacity: 0,
       scale: 0.97,
-      duration: 0.9,
+      duration: 1.0,
       ease: "power2.out",
       scrollTrigger: {
         trigger: sectionRef.current,
@@ -32,12 +32,10 @@ export default function About() {
   }, { scope: sectionRef });
 
   return (
-    <section id="about" ref={sectionRef}>
+    <section id="about" className="section" ref={sectionRef}>
       <p className="eyebrow about-anim">About Chris</p>
 
       <div className="about-grid">
-
-        {/* Left: content */}
         <div>
           <h2 className="about-anim">
             Fast answers,<br />
@@ -89,7 +87,6 @@ export default function About() {
           </div>
         </div>
 
-        {/* Right: portrait + credentials */}
         <aside>
           <div className="about-photo">
             <img
@@ -117,7 +114,6 @@ export default function About() {
             </div>
           </dl>
         </aside>
-
       </div>
     </section>
   );

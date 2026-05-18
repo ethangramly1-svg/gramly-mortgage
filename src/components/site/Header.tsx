@@ -7,17 +7,16 @@ const APPLY_URL = "https://www.clearmodernmortgage.com/loan-officer/chris-gramly
 
 export default function Header() {
   const headerRef = useRef<HTMLElement>(null);
-  const [light, setLight] = useState(false);
-  const [open,  setOpen]  = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [open,     setOpen]     = useState(false);
 
   useEffect(() => {
     const unsub = subscribeScroll(({ scrollY, vh }) => {
-      setLight(scrollY > vh * 0.98);
+      setScrolled(scrollY > vh * 0.98);
     });
     return unsub;
   }, []);
 
-  // Close mobile menu on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -28,7 +27,7 @@ export default function Header() {
   }, [open]);
 
   useGSAP(() => {
-    const tl = gsap.timeline({ delay: 0.25 });
+    const tl = gsap.timeline({ delay: 0.2 });
     tl.from(headerRef.current, {
       y: -72,
       duration: 0.85,
@@ -47,7 +46,7 @@ export default function Header() {
   }, { scope: headerRef });
 
   return (
-    <header ref={headerRef} className={`site-header${light ? " is-light" : ""}`}>
+    <header ref={headerRef} className={`site-header${scrolled ? " is-scrolled" : ""}`}>
       <a className="brand" href="#top" aria-label="Chris Gramly home">
         <img src={LOGO} alt="Clear Modern Mortgage" />
       </a>
@@ -72,11 +71,11 @@ export default function Header() {
           onClick={() => setOpen((o) => !o)}
         >
           {open ? (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           )}

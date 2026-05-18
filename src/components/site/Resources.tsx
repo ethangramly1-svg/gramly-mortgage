@@ -41,15 +41,15 @@ const ITEMS = [
 ];
 
 export default function Resources() {
-  const sectionRef  = useRef<HTMLElement>(null);
-  const listRef     = useRef<HTMLDivElement>(null);
-  const footerRef   = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const listRef    = useRef<HTMLDivElement>(null);
+  const footerRef  = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
     gsap.from(".res-header", {
       opacity: 0,
       y: 28,
-      duration: 0.7,
+      duration: 0.75,
       stagger: 0.08,
       ease: "power3.out",
       scrollTrigger: {
@@ -61,7 +61,7 @@ export default function Resources() {
 
     gsap.from(listRef.current!.querySelectorAll("a"), {
       opacity: 0,
-      y: 18,
+      y: 16,
       duration: 0.5,
       stagger: 0.065,
       ease: "power2.out",
@@ -86,7 +86,7 @@ export default function Resources() {
   }, { scope: sectionRef });
 
   return (
-    <section id="resources" ref={sectionRef}>
+    <section id="resources" className="section alt" ref={sectionRef}>
       <p className="eyebrow res-header">Resources</p>
       <h2 className="res-header">Clear next steps for every stage.</h2>
       <p className="lede res-header">
@@ -111,7 +111,7 @@ export default function Resources() {
         <p className="res-footer-text">
           Questions about any of these topics? Chris is a direct call or message away.
         </p>
-        <a href="#contact" className="btn dark-ghost">
+        <a href="#contact" className="btn ghost">
           Get in Touch
         </a>
       </div>

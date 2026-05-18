@@ -58,8 +58,8 @@ export default function Refinance() {
 
     gsap.from(".calculator", {
       opacity: 0,
-      x: 28,
-      duration: 0.85,
+      x: 24,
+      duration: 0.9,
       ease: "power3.out",
       scrollTrigger: {
         trigger: sectionRef.current,
@@ -70,10 +70,8 @@ export default function Refinance() {
   }, { scope: sectionRef });
 
   return (
-    <section id="refinance" ref={sectionRef}>
+    <section id="refinance" className="section" ref={sectionRef}>
       <div className="refi-grid">
-
-        {/* Left: context + reasons */}
         <div>
           <p className="eyebrow refi-anim">Refinance</p>
           <h2 className="refi-anim">
@@ -99,13 +97,12 @@ export default function Refinance() {
           </p>
 
           <div className="refi-actions refi-anim">
-            <a href="#contact" className="btn dark-ghost">
+            <a href="#contact" className="btn ghost">
               Talk Through Your Options
             </a>
           </div>
         </div>
 
-        {/* Right: calculator */}
         <div className="calculator" aria-label="Payment snapshot">
           <div className="calc-tag">
             <h3>Payment Snapshot</h3>
@@ -168,7 +165,6 @@ export default function Refinance() {
             Does not include taxes, insurance, HOA, or escrow.
           </p>
         </div>
-
       </div>
     </section>
   );

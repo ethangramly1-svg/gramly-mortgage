@@ -27,8 +27,8 @@ export default function Contact() {
 
     gsap.from(".contact-form, .contact-success", {
       opacity: 0,
-      x: 28,
-      duration: 0.85,
+      x: 24,
+      duration: 0.9,
       ease: "power3.out",
       scrollTrigger: {
         trigger: sectionRef.current,
@@ -63,10 +63,8 @@ export default function Contact() {
   }
 
   return (
-    <section id="contact" ref={sectionRef}>
+    <section id="contact" className="section" ref={sectionRef}>
       <div className="contact-grid">
-
-        {/* Left: profile + contact details */}
         <div>
           <p className="eyebrow contact-anim">Contact</p>
           <h2 className="contact-anim">Talk with Chris Gramly.</h2>
@@ -132,7 +130,6 @@ export default function Contact() {
           </div>
         </div>
 
-        {/* Right: form or success */}
         {sent ? (
           <div className="contact-success">
             <div className="contact-success-icon">✓</div>
@@ -187,7 +184,6 @@ export default function Contact() {
             </button>
           </form>
         )}
-
       </div>
     </section>
   );

@@ -4,18 +4,16 @@ import { subscribeScroll, clamp01 } from "../../lib/scroll";
 import { sceneSkyLocalProgress } from "../../lib/pageBounds";
 
 /**
- * 2D copy overlay for Scene 1.
+ * 2D copy overlay — bottom-left aligned, Cormorant display.
  *
- * Timeline progress is driven by scroll — scroll up reverses everything.
- *
- * Timing (local progress 0 → 1):
- *   0.05 → 0.12 : pre-title slides up
- *   0.12 → 0.42 : headline chars curtain-reveal (SplitText)
- *   0.42 → 0.50 : decorative rule draws in from center
- *   0.50 → 0.62 : subline fades up
- *   0.62 → 0.72 : CTA button appears
- *   0.72 → 0.82 : scroll cue appears
- *   0.90 → 1.00 : everything fades out as scene releases
+ * Timing (local progress 0→1):
+ *   0.05→0.12 : pre-label slides up
+ *   0.12→0.42 : headline chars curtain-reveal (SplitText)
+ *   0.42→0.50 : decorative rule draws left→right
+ *   0.50→0.62 : subline fades up
+ *   0.62→0.72 : CTA appears
+ *   0.72→0.82 : scroll cue appears
+ *   0.90→1.00 : everything fades out
  */
 export default function HeroOverlay() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -31,21 +29,18 @@ export default function HeroOverlay() {
     const actions = root.querySelector<HTMLElement>(".hero-actions");
     const cue     = document.querySelector<HTMLElement>(".hero-cue");
 
-    // Split headline into chars for curtain reveal
     const split1 = line1 ? new SplitText(line1, { type: "chars" }) : null;
     const split2 = line2 ? new SplitText(line2, { type: "chars" }) : null;
     const chars  = [...(split1?.chars ?? []), ...(split2?.chars ?? [])];
 
     const tl = gsap.timeline({ paused: true });
 
-    // Pre-title
     tl.fromTo(pre,
       { opacity: 0, y: 10 },
-      { opacity: 0.65, y: 0, duration: 0.07, ease: "power2.out" },
+      { opacity: 1, y: 0, duration: 0.07, ease: "power2.out" },
       0.05
     );
 
-    // Headline — chars slide up from below the overflow clip
     if (chars.length) {
       tl.fromTo(chars,
         { yPercent: 110, opacity: 0 },
@@ -54,33 +49,28 @@ export default function HeroOverlay() {
       );
     }
 
-    // Decorative rule — expands from center
     tl.fromTo(rule,
       { scaleX: 0 },
       { scaleX: 1, duration: 0.08, ease: "power2.inOut" },
       0.42
     );
 
-    // Subline
     tl.fromTo(sub,
-      { opacity: 0, y: 14 },
+      { opacity: 0, y: 12 },
       { opacity: 1, y: 0, duration: 0.10, ease: "power2.out" },
       0.52
     );
 
-    // CTA
     tl.fromTo(actions,
       { opacity: 0, y: 10 },
       { opacity: 1, y: 0, duration: 0.10, ease: "power2.out" },
       0.62
     );
 
-    // Scroll cue
     if (cue) {
       tl.fromTo(cue, { opacity: 0 }, { opacity: 1, duration: 0.10 }, 0.72);
     }
 
-    // Scene-release fade-out
     const all = [pre, rule, sub, actions, cue, ...chars].filter(Boolean);
     tl.to(all, { opacity: 0, duration: 0.10, ease: "power1.in" }, 0.90);
 
@@ -115,7 +105,7 @@ export default function HeroOverlay() {
           <div className="hero-actions">
             <a
               href="https://www.clearmodernmortgage.com/loan-officer/chris-gramly/apply-now"
-              className="btn dark-ghost"
+              className="btn primary"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -129,7 +119,7 @@ export default function HeroOverlay() {
       </div>
 
       <div className="hero-cue" aria-hidden="true">
-        Scroll to begin
+        Scroll
         <span className="arrow">↓</span>
       </div>
     </>

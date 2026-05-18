@@ -40,14 +40,14 @@ const LOAN_TYPES = [
 
 export default function Purchase() {
   const sectionRef = useRef<HTMLElement>(null);
-  const loansRef  = useRef<HTMLDivElement>(null);
-  const ctaRef    = useRef<HTMLDivElement>(null);
+  const loansRef   = useRef<HTMLDivElement>(null);
+  const ctaRef     = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
     gsap.from(".purchase-anim", {
       opacity: 0,
       y: 32,
-      duration: 0.7,
+      duration: 0.75,
       stagger: 0.08,
       ease: "power3.out",
       scrollTrigger: {
@@ -57,10 +57,23 @@ export default function Purchase() {
       },
     });
 
+    gsap.from(".step", {
+      opacity: 0,
+      y: 28,
+      duration: 0.65,
+      stagger: 0.1,
+      ease: "power3.out",
+      scrollTrigger: {
+        trigger: ".steps",
+        start: "top 85%",
+        once: true,
+      },
+    });
+
     gsap.from(".loan-type", {
       opacity: 0,
-      y: 24,
-      duration: 0.6,
+      y: 20,
+      duration: 0.55,
       stagger: 0.07,
       ease: "power2.out",
       scrollTrigger: {
@@ -84,7 +97,7 @@ export default function Purchase() {
   }, { scope: sectionRef });
 
   return (
-    <section id="purchase" ref={sectionRef}>
+    <section id="purchase" className="section alt" ref={sectionRef}>
       <p className="eyebrow purchase-anim">Purchase</p>
       <h2 className="purchase-anim">Start strong before you shop.</h2>
       <p className="lede purchase-anim">
@@ -93,7 +106,7 @@ export default function Purchase() {
 
       <div className="steps">
         {STEPS.map((s) => (
-          <article key={s.num} className="step purchase-anim">
+          <article key={s.num} className="step">
             <div className="step-num">{s.num}</div>
             <h3>{s.title}</h3>
             <p className="body">{s.body}</p>
@@ -126,7 +139,7 @@ export default function Purchase() {
           >
             Get Pre-Approved
           </a>
-          <a href="#contact" className="btn dark-ghost">
+          <a href="#contact" className="btn ghost">
             Ask a Question
           </a>
         </div>
