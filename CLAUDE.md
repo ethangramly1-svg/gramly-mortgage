@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 08 — Detail pages (dossier, index, about,
-contact)**, complete. Phases 09–10 fill in Clerk auth + Resend wiring
-and Turso persistence.
+We are currently at **phase 09 — Admin dashboard (Turso + Clerk + CRM +
+analytics)**, complete. Phase 10 wires Resend for the contact-form
+email flow.
 
 ## Stack
 
@@ -389,6 +389,105 @@ are written in a real broker's voice and reviewed for compliance —
 no rate guarantees, no "lowest rates" claims, no implied suitability.
 Replace them through `app/lib/items.ts` (not on the dossier pages
 themselves).
+
+## Admin dashboard (phase 09)
+
+### Services + env
+
+| Service | Purpose                              | Env vars                                         |
+|---------|--------------------------------------|--------------------------------------------------|
+| Turso   | SQLite over HTTP — leads + page views | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`        |
+| Clerk   | Login wall on /dashboard              | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_SIGN_IN_URL` |
+| Resend  | Lead notification emails (phase 10)   | `RESEND_API_KEY`                                 |
+
+All seven values live in `.env.local` (gitignored). `.env.local.example`
+is the committed template. Vercel needs the same seven values in
+Settings → Environment Variables → Production.
+
+### Database schema
+
+Four migrations in `migrations/` (numbered 0001–0004). Run with:
+
+```bash
+pnpm db:migrate
+```
+
+The runner (`scripts/migrate.ts`) is idempotent — strips `--` line
+comments before splitting on `;` and records applied files in
+`_migrations`. Re-running is a no-op.
+
+| Table              | Purpose                                                |
+|--------------------|--------------------------------------------------------|
+| `form_submissions` | Leads + CRM state (status, starred, follow_up_date, notes, estimated_value, tags) |
+| `page_views`       | One row per navigation; daily-rotating session_id fingerprint |
+| `daily_stats`      | Reserved for future scheduled-job pre-aggregation      |
+
+### Auth
+
+`app/lib/auth.ts → requireAdmin()` reads `clerkClient().users.getUser(userId).publicMetadata.role`
+on every protected request. Role must be `"admin"`. **Admin role is
+assigned manually** in Clerk dashboard → Users → your user → Public
+Metadata → `{ "role": "admin" }`. Self-service signup with auto-admin
+would be a leak; manual assignment is the gate.
+
+### Routing
+
+`proxy.ts` (the Next.js 16 successor to `middleware.ts`) wraps
+`clerkMiddleware`. Path checks are imperative, not regex —
+Clerk's `createRouteMatcher` runs through path-to-regexp v6 which
+**does not support negative lookahead** `(?!...)`. Use the function
+body's `pathname.startsWith(...) && !exception` pattern instead.
+
+Protected paths:
+- `/dashboard(.*)` — admin UI
+- `/api/submissions(.*)` — CRM endpoints
+- `/api/analytics(.*)` **except** `/api/analytics/track` — the public
+  beacon must reach anonymous visitors.
+
+### CRM pipeline
+
+8 stages, mortgage-specific (defined in `app/lib/contact.ts`):
+
+```
+new → contacted → pre-approved → application → underwriting
+                                                  ↓
+                                     funded · declined · withdrawn
+```
+
+`funded` is the win. `declined` (lender said no) is separate from
+`withdrawn` (borrower walked) — different remediation playbooks.
+
+### Routes inventory
+
+| Route                          | Type       | Purpose                            |
+|--------------------------------|------------|------------------------------------|
+| `/api/contact`                 | ƒ dynamic  | Public: insert into form_submissions |
+| `/api/analytics/track`         | ƒ dynamic  | Public: insert into page_views     |
+| `/api/submissions`             | ƒ dynamic  | Admin: list + filter + search      |
+| `/api/submissions/[id]`        | ƒ dynamic  | Admin: GET, PATCH (any CRM field), DELETE |
+| `/api/submissions/bulk`        | ƒ dynamic  | Admin: bulk read/star/archive/status/delete |
+| `/api/submissions/export`      | ƒ dynamic  | Admin: CSV or JSON download        |
+| `/api/analytics`               | ƒ dynamic  | Admin: aggregated metrics + period filters |
+| `/sign-in/[[...sign-in]]`      | ƒ dynamic  | Clerk-hosted sign-in UI            |
+| `/dashboard`                   | ƒ dynamic  | Overview: 6 stat cards + pipeline chart + recent + due follow-ups |
+| `/dashboard/submissions`       | ○ static   | CRM table (client-side filters/CRUD) |
+| `/dashboard/analytics`         | ○ static   | Charts (client-side filters)       |
+
+### Verified end-to-end
+
+- `pnpm db:migrate` → 4 migrations applied to live Turso
+- `POST /api/contact` → row inserted (verified via libsql query)
+- `POST /api/analytics/track` → row inserted
+- `GET /dashboard` → 307 redirect to `/sign-in` (proxy works)
+- `pnpm build` → 20 routes, no warnings
+
+### Adding admin role to your account
+
+After signing up via `/sign-in`:
+
+1. Open https://dashboard.clerk.com → Users → click your row
+2. Find "Public metadata" → click "Edit" → paste `{ "role": "admin" }` → save
+3. Reload `/dashboard`. If it still 403s, sign out and back in.
 
 ## SmoothScroll
 

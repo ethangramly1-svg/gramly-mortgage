@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter, JetBrains_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import AnalyticsTracker from "@/app/components/AnalyticsTracker";
 import "./globals.css";
 
-// Cormorant Garamond ships only 300–700 (no 200/800). Adjusted the
-// weight list accordingly; the rest of the project's vibe still works.
 const display = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
@@ -34,13 +34,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${display.variable} ${body.variable} ${mono.variable} h-full`}
-    >
-      <body className="noise min-h-full flex flex-col bg-ink text-bone">
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${display.variable} ${body.variable} ${mono.variable} h-full`}
+      >
+        <body className="noise min-h-full flex flex-col bg-ink text-bone">
+          <AnalyticsTracker />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

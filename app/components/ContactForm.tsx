@@ -11,16 +11,27 @@ export default function ContactForm({ source = "contact" }: { source?: "home" | 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
     try {
       const form = e.currentTarget;
       const data = Object.fromEntries(new FormData(form));
-      // Phase 09 wires the real /api/contact endpoint. For now:
-      console.log("[contact submission]", { ...data, source });
-      await new Promise((r) => setTimeout(r, 600));
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, source }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `request_failed_${res.status}`);
+      }
       setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "submission_failed");
     } finally {
       setSubmitting(false);
     }
@@ -77,6 +88,12 @@ export default function ContactForm({ source = "contact" }: { source?: "home" | 
           Replies typically within 24 hours
         </span>
       </div>
+
+      {error && (
+        <p className="font-mono text-[0.6rem] uppercase tracking-[0.22em] text-red-400/80">
+          Something went wrong ({error}). Email chris.gramly@clearmtg.com directly.
+        </p>
+      )}
     </form>
   );
 }
