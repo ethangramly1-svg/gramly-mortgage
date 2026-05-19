@@ -60,17 +60,17 @@ export default function ScrollVideo({
 
   useEffect(() => {
     const tier = pickTier();
-    const isMobile = tier === "mobile";
-    // Step through frames on mobile and retina/4K too — at normal scroll
-    // speed you can't see the difference between every-frame and every-
-    // other-frame, but halving the strip halves decode + draw + memory
-    // on the device tiers that need the headroom most.
-    const frameStep = isMobile || tier === "desktop-2x" ? 2 : 1;
+    // Aggressive slim-down: 16 frames (frameStep=4) for every tier. The
+    // sampled indices are {1, 5, 9, ..., 61} which exist in all three
+    // frame folders (mobile files are odd-numbered 1..61). Trading
+    // animation density for raw performance after multiple rounds of
+    // micro-optimizations couldn't get the canvas scroll-scrub feeling
+    // smooth on average hardware.
+    const frameStep = 4;
     const frameCount = Math.ceil(FRAME_COUNT / frameStep);
 
     totalFramesRef.current = frameCount;
     setTotalFrames(frameCount);
-    if (isMobile) setEffectiveHeight(160);
 
     // Refresh cached viewport, canvas, and spacer metrics.
     // Called on mount + resize. The scroll handler and drawFrame both
