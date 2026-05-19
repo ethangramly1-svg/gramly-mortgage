@@ -12,32 +12,31 @@ type ScrollVideoProps = {
 };
 
 /**
- * Hero with a hardware-decoded <video> element. Replaced the previous
- * canvas-painted scroll-scrubbed frame strip after ~10 rounds of perf
- * optimization couldn't get the canvas approach feeling smooth on
- * average hardware. The browser's video decoder is purpose-built for
- * this: zero scroll-handler painting cost.
+ * Static hero — single image with a slow CSS Ken-Burns zoom. No JS-driven
+ * animation, no canvas, no video decode. Bulletproof smoothness because
+ * the only motion is a CSS transform on the GPU compositor; nothing
+ * runs in response to scroll except the title fade we already had.
  *
- * Trade-off vs the canvas: the video plays on its own pace, not driven
- * by scroll. The penthouse → soar → penthouse narrative still reads
- * because it's the same visual content; the user just isn't "scrubbing"
- * the camera with their scroll wheel.
+ * Trade-off vs the previous (video / canvas) approaches: we lose the
+ * penthouse → soar → penthouse cinematic. Only the opening shot
+ * shows. The Ken-Burns zoom (scale 1.0 → 1.08 over 20s) keeps the
+ * frame alive so it doesn't read as a dead still.
  *
- * What we keep from the canvas version:
- *   - the scroll spacer that gives the hero its scroll real estate
- *   - the title overlay that fades up + out as you scroll past
- *   - the bottom status bar with a scroll-progress hairline
- *   - the filmic vignette + gold radial scrims
- *   - the overlay-wide fade-out as you exit the hero into the next section
+ * What we keep:
+ *   - scroll spacer that gives the hero its scroll real estate
+ *   - title overlay with scroll-driven fade
+ *   - bottom status bar with progress hairline
+ *   - filmic vignette + gold radial scrims
+ *   - overlay-wide fade-out into the next section
  */
 export default function ScrollVideo({
   heightVh = 80,
-  src = "/hero.mp4",
+  src = "/hero-still.jpg",
   children,
 }: ScrollVideoProps) {
   const spacerRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const titleWrapRef = useRef<HTMLDivElement | null>(null);
   const statusWrapRef = useRef<HTMLDivElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -128,14 +127,6 @@ export default function ScrollVideo({
     window.addEventListener("resize", onResize);
     onScroll();
 
-    // Some browsers (Safari) require an explicit play() call after the
-    // element mounts, even with autoplay. Best-effort — if blocked by
-    // autoplay policy we silently swallow the rejection.
-    const video = videoRef.current;
-    if (video) {
-      video.play().catch(() => {});
-    }
-
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
@@ -165,16 +156,13 @@ export default function ScrollVideo({
           transition: "opacity 0.05s linear, visibility 0s linear",
         }}
       >
-        <video
-          ref={videoRef}
+        {/* eslint-disable-next-line @next/next/no-img-element -- intentional <img>: full-bleed decorative hero with CSS Ken-Burns; next/image's wrapper div interferes with the absolute-inset positioning. */}
+        <img
+          ref={imgRef}
           src={src}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          onCanPlay={() => setReady(true)}
-          className="absolute inset-0 w-full h-full object-cover"
+          alt=""
+          onLoad={() => setReady(true)}
+          className="hero-ken-burns absolute inset-0 w-full h-full object-cover"
           style={{ opacity: ready ? 1 : 0, transition: "opacity 0.6s ease-out" }}
           aria-hidden
         />

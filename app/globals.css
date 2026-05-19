@@ -244,6 +244,22 @@ html.lenis, html.lenis body { height: auto; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .marquee { animation: marquee 50s linear infinite; }
 
+/* Hero Ken-Burns — slow zoom + drift so the static hero still reads
+ * as alive. 20s in, 20s out via `alternate`. Pure CSS transform, GPU-
+ * accelerated, zero scroll handler cost. */
+@keyframes ken-burns {
+  0%   { transform: scale(1.0)  translate(0, 0); }
+  100% { transform: scale(1.08) translate(-1.5%, -1%); }
+}
+.hero-ken-burns {
+  animation: ken-burns 20s ease-in-out infinite alternate;
+  transform-origin: center center;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-ken-burns { animation: none; }
+}
+
 .vertical    { writing-mode: vertical-rl; transform: rotate(180deg); }
 .serif-nums  { font-variant-numeric: tabular-nums; font-feature-settings: "tnum", "cv11"; }
 
