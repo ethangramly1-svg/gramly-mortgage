@@ -61,7 +61,11 @@ export default function ScrollVideo({
   useEffect(() => {
     const tier = pickTier();
     const isMobile = tier === "mobile";
-    const frameStep = isMobile ? 2 : 1;
+    // Step through frames on mobile and retina/4K too — at normal scroll
+    // speed you can't see the difference between every-frame and every-
+    // other-frame, but halving the strip halves decode + draw + memory
+    // on the device tiers that need the headroom most.
+    const frameStep = isMobile || tier === "desktop-2x" ? 2 : 1;
     const frameCount = Math.ceil(FRAME_COUNT / frameStep);
 
     totalFramesRef.current = frameCount;
@@ -305,11 +309,15 @@ export default function ScrollVideo({
               "linear-gradient(180deg, rgba(15,11,6,0.55) 0%, rgba(15,11,6,0.05) 28%, rgba(15,11,6,0.00) 55%, rgba(15,11,6,0.45) 82%, rgba(15,11,6,0.92) 100%)",
           }}
         />
+        {/* Plain (non-blending) gold radial. mix-blend-overlay forced
+            a per-paint recomposite of the canvas into this layer; dropping
+            it cuts the scroll compositing cost noticeably. Lowered alpha
+            (0.22 -> 0.10) compensates so the warmth reads similarly. */}
         <div
-          className="pointer-events-none absolute inset-0 mix-blend-overlay"
+          className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(80% 55% at 50% 115%, rgba(212, 180, 106, 0.22), transparent 65%)",
+              "radial-gradient(80% 55% at 50% 115%, rgba(212, 180, 106, 0.10), transparent 65%)",
           }}
         />
 
