@@ -115,61 +115,31 @@ export default function ScrollVideo({
       }
     };
 
-    // Resolve the best paintable source for a frame index — prefer the
-    // GPU-ready ImageBitmap, fall back to the HTMLImageElement if the
-    // bitmap hasn't been created yet (or the platform doesn't support
-    // createImageBitmap).
-    const sourceFor = (i: number): ImageBitmap | HTMLImageElement | null => {
-      const bm = bitmapsRef.current[i];
-      if (bm) return bm;
-      const img = imagesRef.current[i];
-      if (img && img.complete && img.naturalWidth) return img;
-      return null;
-    };
-
-    // drawFrame accepts a *fractional* frame index. The integer part
-    // selects the primary frame (drawn at full opacity); the fractional
-    // part is the crossfade alpha for the next frame, painted on top.
-    // This gives sub-frame smoothness — at slow scroll velocities you
-    // see a continuous blend between adjacent frames instead of
-    // discrete frame steps, which was the "flipbook" choppiness.
-    const drawFrame = (idxFloat: number) => {
+    const drawFrame = (idx: number) => {
       const ctx = ctxRef.current;
       if (!ctx) return;
-      const fc = totalFramesRef.current;
-      const idx = Math.floor(idxFloat);
-      const next = Math.min(idx + 1, fc - 1);
-      const blend = idxFloat - idx;
-
-      const primary = sourceFor(idx);
-      if (!primary) return; // primary frame not loaded — keep previous paint.
+      // Prefer the GPU-ready ImageBitmap when available; fall back to
+      // the raw HTMLImageElement if bitmap creation hasn't completed
+      // yet or the platform doesn't support createImageBitmap.
+      const bitmap = bitmapsRef.current[idx];
+      const img = imagesRef.current[idx];
+      const source: ImageBitmap | HTMLImageElement | undefined = bitmap ?? img;
+      if (!source) return;
+      if (!bitmap && (!img.complete || !img.naturalWidth)) return;
 
       const { w, h } = viewRef.current;
 
-      // Background fill on every paint. Required for crossfade — without
-      // it the previous frame would compound through the alpha blend on
-      // each tick. Also serves as the initial canvas-clear behavior.
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#0f0b06";
-      ctx.fillRect(0, 0, w, h);
-
-      const paint = (src: ImageBitmap | HTMLImageElement, alpha: number) => {
-        const iw = "naturalWidth" in src ? src.naturalWidth : src.width;
-        const ih = "naturalHeight" in src ? src.naturalHeight : src.height;
-        const scale = Math.max(w / iw, h / ih);
-        const dw = iw * scale;
-        const dh = ih * scale;
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh);
-      };
-
-      paint(primary, 1);
-      if (blend > 0.01 && next !== idx) {
-        const secondary = sourceFor(next);
-        if (secondary) paint(secondary, blend);
+      if (lastFrameRef.current === -1) {
+        ctx.fillStyle = "#0f0b06";
+        ctx.fillRect(0, 0, w, h);
       }
 
-      ctx.globalAlpha = 1; // reset for any other canvas work
+      const iw = bitmap ? bitmap.width : img.naturalWidth;
+      const ih = bitmap ? bitmap.height : img.naturalHeight;
+      const scale = Math.max(w / iw, h / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      ctx.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
       lastFrameRef.current = idx;
     };
 
@@ -226,15 +196,10 @@ export default function ScrollVideo({
         const t = scrolled / total;
 
         // Scrub portion (0..ANIMATION_END maps to 0..1 of frames).
-        // Pass the fractional frame index so drawFrame can crossfade
-        // between the integer-floor frame and the next one. We don't
-        // dedup on the integer frame here — sub-integer changes still
-        // need to repaint for the crossfade to be visible. Each repaint
-        // is cheap (ImageBitmap + globalAlpha) so the cost is fine.
         const animP = Math.min(1, t / ANIMATION_END);
         const fc = totalFramesRef.current;
-        const frameFloat = Math.max(0, Math.min(fc - 1, animP * (fc - 1)));
-        drawFrame(frameFloat);
+        const frame = Math.min(fc - 1, Math.max(0, Math.round(animP * (fc - 1))));
+        if (frame !== lastFrameRef.current) drawFrame(frame);
 
         // Tail portion (ANIMATION_END..1) fades the whole overlay out.
         const fo = Math.max(0, Math.min(1, (t - ANIMATION_END) / (1 - ANIMATION_END)));
