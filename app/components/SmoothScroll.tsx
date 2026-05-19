@@ -40,6 +40,15 @@ export default function SmoothScroll() {
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     if (prefersReduced || coarse) return;
 
+    // The homepage carries the canvas-scrubbed ScrollVideo hero, which
+    // is the most expensive thing in the build to keep in sync with
+    // scroll. Lenis interpolates the scroll position which generates
+    // many more in-between scroll events than native scrolling does —
+    // each one driving the canvas to re-evaluate. Native scroll fires
+    // far fewer events, so the canvas has less to keep up with and the
+    // hero feels noticeably smoother. Other pages still get smooth scroll.
+    if (pathname === "/") return;
+
     const lenis = new Lenis({
       duration: 1.25,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -94,7 +103,7 @@ export default function SmoothScroll() {
         delete window.__lenis;
       }
     };
-  }, []);
+  }, [pathname]);
 
   // Route-change reset. Next.js 16 Link preserves scroll position by
   // default when the new page is visible, which on tall same-background
@@ -106,28 +115,33 @@ export default function SmoothScroll() {
       firstPathRef.current = false;
       return;
     }
+    // Lenis is absent on the homepage (intentional — see the mount
+    // effect above). Use native scroll APIs as the fallback so route
+    // resets still work whether we're navigating to home or away.
     const lenis = window.__lenis;
-    if (!lenis) return;
-
-    lenis.stop();
+    lenis?.stop();
 
     const hash = window.location.hash;
     if (hash) {
       requestAnimationFrame(() => {
         const target = document.getElementById(hash.slice(1));
         if (target) {
-          lenis.scrollTo(target, { offset: -80, duration: 1.1, force: true });
+          if (lenis) {
+            lenis.scrollTo(target, { offset: -80, duration: 1.1, force: true });
+          } else {
+            target.scrollIntoView({ block: "start" });
+          }
         } else {
           window.scrollTo(0, 0);
-          lenis.scrollTo(0, { immediate: true, force: true });
+          lenis?.scrollTo(0, { immediate: true, force: true });
         }
-        lenis.start();
+        lenis?.start();
         requestAnimationFrame(() => ScrollTrigger.refresh());
       });
     } else {
       window.scrollTo(0, 0);
-      lenis.scrollTo(0, { immediate: true, force: true });
-      lenis.start();
+      lenis?.scrollTo(0, { immediate: true, force: true });
+      lenis?.start();
       requestAnimationFrame(() => ScrollTrigger.refresh());
     }
   }, [pathname]);
