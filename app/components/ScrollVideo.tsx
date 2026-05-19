@@ -60,13 +60,14 @@ export default function ScrollVideo({
 
   useEffect(() => {
     const tier = pickTier();
-    // Aggressive slim-down: 16 frames (frameStep=4) for every tier. The
-    // sampled indices are {1, 5, 9, ..., 61} which exist in all three
-    // frame folders (mobile files are odd-numbered 1..61). Trading
-    // animation density for raw performance after multiple rounds of
-    // micro-optimizations couldn't get the canvas scroll-scrub feeling
-    // smooth on average hardware.
-    const frameStep = 4;
+    // 31 frames (frameStep=2) for every tier. Sampled indices are
+    // {1, 3, 5, ..., 61} — all exist in every frame folder (mobile
+    // is exactly those odd-numbered files; desktop tiers include them
+    // in the full 1..61 set). 31 gives the multi-beat narrative
+    // (penthouse 1 → soar through sky → penthouse 2) enough frame
+    // density at the transitions to read as a journey rather than
+    // discrete cuts. heightVh=80 stays short for perf.
+    const frameStep = 2;
     const frameCount = Math.ceil(FRAME_COUNT / frameStep);
 
     totalFramesRef.current = frameCount;
