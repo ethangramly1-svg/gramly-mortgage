@@ -13,9 +13,9 @@ legacy Vite + React 18 + Three.js notes are preserved at
 `docs/CLAUDE.vite-legacy.md` for reference but **do not describe what
 the working tree contains now**.
 
-We are currently at **phase 09 — Admin dashboard (Turso + Clerk + CRM +
-analytics)**, complete. Phase 10 wires Resend for the contact-form
-email flow.
+We are currently at **phase 10 — Resend email wiring**, complete.
+The 11-phase plan's core build is done; phase 11 (if used) is
+typically domain / content polish.
 
 ## Stack
 
@@ -488,6 +488,54 @@ After signing up via `/sign-in`:
 1. Open https://dashboard.clerk.com → Users → click your row
 2. Find "Public metadata" → click "Edit" → paste `{ "role": "admin" }` → save
 3. Reload `/dashboard`. If it still 403s, sign out and back in.
+
+## Email (phase 10)
+
+### Two transactional emails per submission
+
+`app/api/contact/route.ts` fires both, in parallel via `Promise.allSettled`,
+after the DB insert succeeds. Either failure is logged but never blocks
+the response — the lead is captured in Turso regardless.
+
+| Function                  | Recipient        | Subject                       |
+|---------------------------|------------------|-------------------------------|
+| `sendLeadNotification()`  | `CONTACT_EMAIL`  | `New lead · {name}[ · {service}]` |
+| `sendLeadConfirmation()`  | lead's email     | `Thank you — Chris Gramly`    |
+
+Templates are inline-styled HTML in `app/lib/email.ts`. No `@react-email/*`
+dep — most email clients strip CSS classes anyway, so React Email's main
+benefit (component reuse) doesn't survive the wire. The admin template
+links back to `/dashboard/submissions?id={id}` so you can open the lead
+in one click from your inbox.
+
+### Resend's test-sender restriction (important)
+
+Until you verify a sending domain in Resend, the `from` address is
+`onboarding@resend.dev` and **emails only deliver to the address you
+registered with on Resend**. Verified phase 10:
+
+- ✅ Customer confirmation to `ethangramly1@gmail.com` → delivered
+- ❌ Admin notification to `chris.gramly@clearmtg.com` → rejected
+  (HTTP 403 "validation_error") because the recipient doesn't match
+  the registered Resend account.
+
+### To enable production email — verify a domain
+
+1. https://resend.com/domains → **Add Domain** → enter `clearmtg.com`
+   (or whichever domain you control).
+2. Resend gives 3 DNS records (SPF, DKIM, MX-or-bounce). Add them at
+   the DNS host for that domain (GoDaddy, Cloudflare, Namecheap, etc.).
+3. Wait ~5 minutes, hit **Verify** in Resend.
+4. Once verified, set the `FROM_ADDRESS` env var (on Vercel **and** in
+   `.env.local`):
+   ```
+   FROM_ADDRESS=Chris Gramly <chris@clearmtg.com>
+   ```
+5. Redeploy on Vercel.
+
+Until step 4, switch `CONTACT_EMAIL` in `app/lib/contact.ts` to your
+Resend-registered address (`ethangramly1@gmail.com`) so the admin
+notifications at least reach you for testing.
 
 ## SmoothScroll
 

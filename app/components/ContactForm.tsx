@@ -7,7 +7,7 @@ import { useState } from "react";
  * dedicated /contact page. Currently logs to console; phase 09 wires
  * the real /api/contact endpoint (Resend + Turso).
  */
-export default function ContactForm({ source = "contact" }: { source?: "home" | "contact" }) {
+export default function ContactForm({ source = "contact" }: { source?: "home" | "contact" | "dossier" }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 

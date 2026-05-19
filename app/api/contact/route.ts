@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/app/lib/db";
 import { randomId } from "@/app/lib/analytics";
+import { sendLeadNotification, sendLeadConfirmation } from "@/app/lib/email";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,7 @@ type Body = {
   phone?: string;
   service?: string;
   message?: string;
-  source?: "home" | "contact";
+  source?: "home" | "contact" | "dossier";
 };
 
 export async function POST(req: Request) {
@@ -35,24 +36,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_email" }, { status: 422 });
   }
 
-  const db = getDB();
   const id = randomId();
-  await db
+  const phone = (body.phone ?? "").trim() || null;
+  const service = (body.service ?? "").trim() || null;
+  const source: "home" | "contact" | "dossier" =
+    body.source === "contact" || body.source === "dossier" ? body.source : "home";
+
+  // DB insert is the contract: leads are captured even if email plumbing
+  // fails. Email sends below are best-effort and never throw upward.
+  await getDB()
     .prepare(
       `INSERT INTO form_submissions (id, name, email, phone, service, message, source)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(
-      id,
-      name,
-      email,
-      (body.phone ?? "").trim() || null,
-      (body.service ?? "").trim() || null,
-      message,
-      body.source === "contact" ? "contact" : "home",
-    )
+    .bind(id, name, email, phone, service, message, source)
     .run();
 
-  // TODO phase 10: send admin notification + customer confirmation emails via Resend
+  const payload = { id, name, email, phone, service, message, source };
+  // Fire both in parallel — neither blocks the other. Each function
+  // catches its own errors and logs them; the route always returns 201.
+  await Promise.allSettled([
+    sendLeadNotification(payload),
+    sendLeadConfirmation(payload),
+  ]);
+
   return NextResponse.json({ success: true, id }, { status: 201 });
 }
