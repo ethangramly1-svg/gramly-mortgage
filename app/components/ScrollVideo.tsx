@@ -3,110 +3,57 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 
-const FRAME_COUNT = 61;
 const ANIMATION_END = 0.82;
 
 type ScrollVideoProps = {
   heightVh?: number;
-  framesBase?: string;
+  src?: string;
   children?: ReactNode;
 };
 
-type Tier = "mobile" | "desktop-1x" | "desktop-2x";
-
-function pickTier(): Tier {
-  const w = window.innerWidth;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  if (w < 768) return "mobile";
-  return w * dpr >= 2000 ? "desktop-2x" : "desktop-1x";
-}
-
-function framePath(base: string, tier: Tier, frameNum: number) {
-  return `/${base}/${tier}/${String(frameNum).padStart(3, "0")}.webp`;
-}
-
+/**
+ * Hero with a hardware-decoded <video> element. Replaced the previous
+ * canvas-painted scroll-scrubbed frame strip after ~10 rounds of perf
+ * optimization couldn't get the canvas approach feeling smooth on
+ * average hardware. The browser's video decoder is purpose-built for
+ * this: zero scroll-handler painting cost.
+ *
+ * Trade-off vs the canvas: the video plays on its own pace, not driven
+ * by scroll. The penthouse → soar → penthouse narrative still reads
+ * because it's the same visual content; the user just isn't "scrubbing"
+ * the camera with their scroll wheel.
+ *
+ * What we keep from the canvas version:
+ *   - the scroll spacer that gives the hero its scroll real estate
+ *   - the title overlay that fades up + out as you scroll past
+ *   - the bottom status bar with a scroll-progress hairline
+ *   - the filmic vignette + gold radial scrims
+ *   - the overlay-wide fade-out as you exit the hero into the next section
+ */
 export default function ScrollVideo({
-  heightVh = 220,
-  framesBase = "frames",
+  heightVh = 80,
+  src = "/hero.mp4",
   children,
 }: ScrollVideoProps) {
-  // DOM refs — every per-frame write goes through one of these.
   const spacerRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const titleWrapRef = useRef<HTMLDivElement | null>(null);
   const statusWrapRef = useRef<HTMLDivElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
-  const bitmapsRef = useRef<(ImageBitmap | null)[]>([]);
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const viewRef = useRef({ w: 0, h: 0, dpr: 1 });
   const spacerMetricsRef = useRef({ top: 0, height: 0 });
   const rafRef = useRef<number | null>(null);
-  const lastFrameRef = useRef(-1);
-  const totalFramesRef = useRef(FRAME_COUNT);
 
-  // "last applied DOM value" cache — skip writes when nothing visibly changed.
+  // Cached "last applied" DOM values — skip writes when nothing changed.
   const lastTitleOpRef = useRef(-1);
   const lastFadeOpRef = useRef(-1);
   const lastProgressRef = useRef(-1);
   const lastHiddenRef = useRef(false);
 
-  // State only for things that drive React renders (loading splash).
-  const [loaded, setLoaded] = useState(0);
   const [ready, setReady] = useState(false);
-  const [totalFrames, setTotalFrames] = useState(FRAME_COUNT);
-  const [effectiveHeight, setEffectiveHeight] = useState(heightVh);
 
   useEffect(() => {
-    const tier = pickTier();
-    // 31 frames (frameStep=2) for every tier. Sampled indices are
-    // {1, 3, 5, ..., 61} — all exist in every frame folder (mobile
-    // is exactly those odd-numbered files; desktop tiers include them
-    // in the full 1..61 set). 31 gives the multi-beat narrative
-    // (penthouse 1 → soar through sky → penthouse 2) enough frame
-    // density at the transitions to read as a journey rather than
-    // discrete cuts. heightVh=80 stays short for perf.
-    const frameStep = 2;
-    const frameCount = Math.ceil(FRAME_COUNT / frameStep);
-
-    totalFramesRef.current = frameCount;
-    setTotalFrames(frameCount);
-
-    // Refresh cached viewport, canvas, and spacer metrics.
-    // Called on mount + resize. The scroll handler and drawFrame both
-    // read from these caches so the hot path never touches window.*
-    // or getBoundingClientRect (which can force a layout flush).
     const refreshMetrics = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      viewRef.current = { w, h, dpr };
-
-      const needsResize =
-        canvas.width !== Math.round(w * dpr) ||
-        canvas.height !== Math.round(h * dpr);
-      if (needsResize) {
-        canvas.width = Math.round(w * dpr);
-        canvas.height = Math.round(h * dpr);
-        lastFrameRef.current = -1;
-      }
-
-      // Canvas resize wipes the 2D context state, so we (re)configure
-      // it here whenever it changes. Cached for subsequent draws.
-      // imageSmoothingEnabled = false renders frames pixel-direct —
-      // sharper detail on the building, zero resampling cost.
-      if (!ctxRef.current || needsResize) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.imageSmoothingEnabled = false;
-          ctxRef.current = ctx;
-        }
-      }
-
       const spacer = spacerRef.current;
       if (spacer) {
         spacerMetricsRef.current = {
@@ -115,77 +62,7 @@ export default function ScrollVideo({
         };
       }
     };
-
-    const drawFrame = (idx: number) => {
-      const ctx = ctxRef.current;
-      if (!ctx) return;
-      // Prefer the GPU-ready ImageBitmap when available; fall back to
-      // the raw HTMLImageElement if bitmap creation hasn't completed
-      // yet or the platform doesn't support createImageBitmap.
-      const bitmap = bitmapsRef.current[idx];
-      const img = imagesRef.current[idx];
-      const source: ImageBitmap | HTMLImageElement | undefined = bitmap ?? img;
-      if (!source) return;
-      if (!bitmap && (!img.complete || !img.naturalWidth)) return;
-
-      const { w, h } = viewRef.current;
-
-      if (lastFrameRef.current === -1) {
-        ctx.fillStyle = "#0f0b06";
-        ctx.fillRect(0, 0, w, h);
-      }
-
-      const iw = bitmap ? bitmap.width : img.naturalWidth;
-      const ih = bitmap ? bitmap.height : img.naturalHeight;
-      const scale = Math.max(w / iw, h / ih);
-      const dw = iw * scale;
-      const dh = ih * scale;
-      ctx.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
-      lastFrameRef.current = idx;
-    };
-
     refreshMetrics();
-
-    // Preload every frame the tier needs. First 8 get fetchPriority high
-    // so the opening shot paints before the rest of the strip catches up.
-    // Each loaded image is also converted to an ImageBitmap so drawImage
-    // on the scroll hot path skips the HTMLImageElement → texture upload
-    // step. createImageBitmap runs off the main thread when supported.
-    const imgs: HTMLImageElement[] = [];
-    const bitmaps: (ImageBitmap | null)[] = new Array(frameCount).fill(null);
-    let done = 0;
-    for (let i = 0; i < frameCount; i++) {
-      const frameNum = i * frameStep + 1;
-      const img = new Image();
-      img.decoding = "async";
-      if (i < 8) (img as unknown as { fetchPriority: string }).fetchPriority = "high";
-      // attach onload BEFORE src so cached responses still fire.
-      img.onload = () => {
-        if (typeof createImageBitmap === "function") {
-          createImageBitmap(img).then(
-            (bm) => { bitmaps[i] = bm; },
-            () => {}, // bitmap creation failed — drawFrame falls back to img.
-          );
-        }
-        done += 1;
-        setLoaded(done);
-        // Gate ready on frame 0 specifically — not whichever loads first.
-        // If we used "first to load", drawFrame(0) could fire while frame 0
-        // is still loading, bail out, and never retry.
-        if (i === 0) {
-          setReady(true);
-          requestAnimationFrame(() => drawFrame(0));
-        }
-      };
-      img.onerror = () => {
-        done += 1;
-        setLoaded(done);
-      };
-      img.src = framePath(framesBase, tier, frameNum);
-      imgs.push(img);
-    }
-    imagesRef.current = imgs;
-    bitmapsRef.current = bitmaps;
 
     const onScroll = () => {
       if (rafRef.current != null) return;
@@ -196,16 +73,12 @@ export default function ScrollVideo({
         const scrolled = Math.max(0, Math.min(total, window.scrollY - spacerTop));
         const t = scrolled / total;
 
-        // Scrub portion (0..ANIMATION_END maps to 0..1 of frames).
+        // 0..ANIMATION_END is the "hero is visible / title fade" range.
+        // ANIMATION_END..1 is the "overlay fades out to next section" tail.
         const animP = Math.min(1, t / ANIMATION_END);
-        const fc = totalFramesRef.current;
-        const frame = Math.min(fc - 1, Math.max(0, Math.round(animP * (fc - 1))));
-        if (frame !== lastFrameRef.current) drawFrame(frame);
-
-        // Tail portion (ANIMATION_END..1) fades the whole overlay out.
         const fo = Math.max(0, Math.min(1, (t - ANIMATION_END) / (1 - ANIMATION_END)));
 
-        // Title fade-up follows the first 45% of the scrub.
+        // Title fade-up follows the first 45% of the hero range.
         const titleP = Math.min(1, animP / 0.45);
         const titleOpacity = 1 - titleP;
         const titleShift = titleP * -60;
@@ -248,7 +121,6 @@ export default function ScrollVideo({
 
     const onResize = () => {
       refreshMetrics();
-      drawFrame(lastFrameRef.current >= 0 ? lastFrameRef.current : 0);
       onScroll();
     };
 
@@ -256,35 +128,33 @@ export default function ScrollVideo({
     window.addEventListener("resize", onResize);
     onScroll();
 
+    // Some browsers (Safari) require an explicit play() call after the
+    // element mounts, even with autoplay. Best-effort — if blocked by
+    // autoplay policy we silently swallow the rejection.
+    const video = videoRef.current;
+    if (video) {
+      video.play().catch(() => {});
+    }
+
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-      // Release decoded image cache for GC.
-      imagesRef.current.forEach((img) => {
-        img.onload = null;
-        img.onerror = null;
-      });
-      imagesRef.current = [];
-      // Close ImageBitmaps to release their backing GPU memory
-      // immediately rather than waiting for GC.
-      bitmapsRef.current.forEach((b) => b?.close());
-      bitmapsRef.current = [];
-      ctxRef.current = null;
     };
-  }, [framesBase]);
+  }, []);
 
   return (
     <>
       <div
         ref={spacerRef}
-        style={{ height: `${effectiveHeight}vh` }}
+        style={{ height: `${heightVh}vh` }}
         className="relative bg-ink"
         aria-hidden
       />
 
       <div
         ref={overlayRef}
+        className="bg-ink"
         style={{
           position: "fixed",
           inset: 0,
@@ -295,10 +165,17 @@ export default function ScrollVideo({
           transition: "opacity 0.05s linear, visibility 0s linear",
         }}
       >
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 block"
-          style={{ width: "100%", height: "100%", willChange: "transform" }}
+        <video
+          ref={videoRef}
+          src={src}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          onCanPlay={() => setReady(true)}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ opacity: ready ? 1 : 0, transition: "opacity 0.6s ease-out" }}
           aria-hidden
         />
 
@@ -310,10 +187,6 @@ export default function ScrollVideo({
               "linear-gradient(180deg, rgba(15,11,6,0.55) 0%, rgba(15,11,6,0.05) 28%, rgba(15,11,6,0.00) 55%, rgba(15,11,6,0.45) 82%, rgba(15,11,6,0.92) 100%)",
           }}
         />
-        {/* Plain (non-blending) gold radial. mix-blend-overlay forced
-            a per-paint recomposite of the canvas into this layer; dropping
-            it cuts the scroll compositing cost noticeably. Lowered alpha
-            (0.22 -> 0.10) compensates so the warmth reads similarly. */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -321,25 +194,6 @@ export default function ScrollVideo({
               "radial-gradient(80% 55% at 50% 115%, rgba(212, 180, 106, 0.10), transparent 65%)",
           }}
         />
-
-        {!ready && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink z-40">
-            <div className="text-center">
-              <div className="font-mono text-[0.65rem] uppercase tracking-[0.4em] text-gold/80 mb-4">
-                Rendering the film
-              </div>
-              <div className="h-px w-48 bg-line relative overflow-hidden mx-auto">
-                <div
-                  className="absolute top-0 left-0 h-full bg-gold transition-[width]"
-                  style={{ width: `${(loaded / totalFrames) * 100}%` }}
-                />
-              </div>
-              <div className="mt-3 font-mono text-[0.55rem] tracking-[0.3em] text-bone/40">
-                {String(Math.round((loaded / totalFrames) * 100)).padStart(2, "0")} / 100
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* HERO TITLE */}
         <div
