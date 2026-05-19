@@ -95,12 +95,13 @@ export default function ScrollVideo({
 
       // Canvas resize wipes the 2D context state, so we (re)configure
       // it here whenever it changes. Cached for subsequent draws.
+      // imageSmoothingEnabled = false renders frames pixel-direct —
+      // sharper detail on the building, zero resampling cost.
       if (!ctxRef.current || needsResize) {
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "low";
+          ctx.imageSmoothingEnabled = false;
           ctxRef.current = ctx;
         }
       }
@@ -283,7 +284,6 @@ export default function ScrollVideo({
 
       <div
         ref={overlayRef}
-        className="noise"
         style={{
           position: "fixed",
           inset: 0,

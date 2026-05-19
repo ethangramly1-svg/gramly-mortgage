@@ -7,7 +7,7 @@ import { ITEMS } from "@/app/lib/items";
 export default function Home() {
   return (
     <>
-      <ScrollVideo heightVh={220} />
+      <ScrollVideo heightVh={160} />
       <CollectionOverture />
       <section id="collection" className="relative bg-ink border-y border-line">
         <PortfolioStack items={ITEMS.filter((x) => x.slug !== "jumbo")} />
