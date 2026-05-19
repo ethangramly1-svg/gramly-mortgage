@@ -40,15 +40,11 @@ export default function SmoothScroll() {
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     if (prefersReduced || coarse) return;
 
-    // The homepage carries the canvas-scrubbed ScrollVideo hero, which
-    // is the most expensive thing in the build to keep in sync with
-    // scroll. Lenis interpolates the scroll position which generates
-    // many more in-between scroll events than native scrolling does —
-    // each one driving the canvas to re-evaluate. Native scroll fires
-    // far fewer events, so the canvas has less to keep up with and the
-    // hero feels noticeably smoother. Other pages still get smooth scroll.
-    if (pathname === "/") return;
-
+    // Lenis runs on every page including home. We tried disabling it
+    // on home to relieve the canvas hero, but Lenis was actually
+    // helping perception: it interpolates scroll to sub-integer
+    // positions, which is precisely what the ScrollVideo crossfade
+    // (in drawFrame) needs to blend between adjacent frames smoothly.
     const lenis = new Lenis({
       duration: 1.25,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
