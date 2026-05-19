@@ -46,7 +46,6 @@ export default function ScrollVideo({
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const spacerMetricsRef = useRef({ top: 0, height: 0 });
   const rafRef = useRef<number | null>(null);
-  const lastTimeRef = useRef(-1);
 
   // Cached "last applied" DOM values — skip writes when nothing changed.
   const lastTitleOpRef = useRef(-1);
@@ -83,23 +82,22 @@ export default function ScrollVideo({
         const fo = Math.max(0, Math.min(1, (t - ANIMATION_END) / (1 - ANIMATION_END)));
 
         // Drive video.currentTime from scroll progress. With all-keyframe
-        // encoding (keyint=1) every seek is instant — the browser paints
-        // the new frame using its hardware decoder. Dedup within a single
-        // 30fps frame (~33ms) so we don't thrash the decoder.
+        // encoding (keyint=1) every seek is instant. The source is now
+        // 60fps (motion-interpolated via ffmpeg's minterpolate) so the
+        // video has twice the frame density it used to have. We no
+        // longer dedup writes — at 60Hz RAF, even sub-millisecond seek
+        // deltas are worth painting; the browser internally no-ops
+        // when the same frame is requested twice.
         const video = videoRef.current;
         if (video) {
           const dur = video.duration;
           if (dur && isFinite(dur)) {
-            const targetTime = animP * dur;
-            if (Math.abs(targetTime - lastTimeRef.current) > 0.033) {
-              lastTimeRef.current = targetTime;
-              try {
-                video.currentTime = targetTime;
-              } catch {
-                // Some browsers throw if seek is requested before
-                // enough data is buffered. Silently skip — the next
-                // scroll tick will retry.
-              }
+            try {
+              video.currentTime = animP * dur;
+            } catch {
+              // Some browsers throw if seek is requested before
+              // enough data is buffered. Silently skip — the next
+              // scroll tick will retry.
             }
           }
         }
