@@ -38,6 +38,10 @@ export default function ScrollVideo({
   const statusWrapRef = useRef<HTMLDivElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const bitmapsRef = useRef<(ImageBitmap | null)[]>([]);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const viewRef = useRef({ w: 0, h: 0, dpr: 1 });
+  const spacerMetricsRef = useRef({ top: 0, height: 0 });
   const rafRef = useRef<number | null>(null);
   const lastFrameRef = useRef(-1);
   const totalFramesRef = useRef(FRAME_COUNT);
@@ -64,14 +68,17 @@ export default function ScrollVideo({
     setTotalFrames(frameCount);
     if (isMobile) setEffectiveHeight(160);
 
-    const drawFrame = (idx: number) => {
+    // Refresh cached viewport, canvas, and spacer metrics.
+    // Called on mount + resize. The scroll handler and drawFrame both
+    // read from these caches so the hot path never touches window.*
+    // or getBoundingClientRect (which can force a layout flush).
+    const refreshMetrics = () => {
       const canvas = canvasRef.current;
-      const img = imagesRef.current[idx];
-      if (!canvas || !img || !img.complete || !img.naturalWidth) return;
-
+      if (!canvas) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = window.innerWidth;
       const h = window.innerHeight;
+      viewRef.current = { w, h, dpr };
 
       const needsResize =
         canvas.width !== Math.round(w * dpr) ||
@@ -82,36 +89,78 @@ export default function ScrollVideo({
         lastFrameRef.current = -1;
       }
 
-      const ctx = canvas.getContext("2d");
+      // Canvas resize wipes the 2D context state, so we (re)configure
+      // it here whenever it changes. Cached for subsequent draws.
+      if (!ctxRef.current || needsResize) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "low";
+          ctxRef.current = ctx;
+        }
+      }
+
+      const spacer = spacerRef.current;
+      if (spacer) {
+        spacerMetricsRef.current = {
+          top: spacer.offsetTop,
+          height: spacer.offsetHeight,
+        };
+      }
+    };
+
+    const drawFrame = (idx: number) => {
+      const ctx = ctxRef.current;
       if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = isMobile ? "medium" : "high";
+      // Prefer the GPU-ready ImageBitmap when available; fall back to
+      // the raw HTMLImageElement if bitmap creation hasn't completed
+      // yet or the platform doesn't support createImageBitmap.
+      const bitmap = bitmapsRef.current[idx];
+      const img = imagesRef.current[idx];
+      const source: ImageBitmap | HTMLImageElement | undefined = bitmap ?? img;
+      if (!source) return;
+      if (!bitmap && (!img.complete || !img.naturalWidth)) return;
+
+      const { w, h } = viewRef.current;
 
       if (lastFrameRef.current === -1) {
         ctx.fillStyle = "#0f0b06";
         ctx.fillRect(0, 0, w, h);
       }
 
-      const iw = img.naturalWidth;
-      const ih = img.naturalHeight;
+      const iw = bitmap ? bitmap.width : img.naturalWidth;
+      const ih = bitmap ? bitmap.height : img.naturalHeight;
       const scale = Math.max(w / iw, h / ih);
       const dw = iw * scale;
       const dh = ih * scale;
-      ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      ctx.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
       lastFrameRef.current = idx;
     };
 
+    refreshMetrics();
+
     // Preload every frame the tier needs. First 8 get fetchPriority high
     // so the opening shot paints before the rest of the strip catches up.
+    // Each loaded image is also converted to an ImageBitmap so drawImage
+    // on the scroll hot path skips the HTMLImageElement → texture upload
+    // step. createImageBitmap runs off the main thread when supported.
     const imgs: HTMLImageElement[] = [];
+    const bitmaps: (ImageBitmap | null)[] = new Array(frameCount).fill(null);
     let done = 0;
     for (let i = 0; i < frameCount; i++) {
       const frameNum = i * frameStep + 1;
       const img = new Image();
+      img.decoding = "async";
       if (i < 8) (img as unknown as { fetchPriority: string }).fetchPriority = "high";
       // attach onload BEFORE src so cached responses still fire.
       img.onload = () => {
+        if (typeof createImageBitmap === "function") {
+          createImageBitmap(img).then(
+            (bm) => { bitmaps[i] = bm; },
+            () => {}, // bitmap creation failed — drawFrame falls back to img.
+          );
+        }
         done += 1;
         setLoaded(done);
         // Gate ready on frame 0 specifically — not whichever loads first.
@@ -130,17 +179,16 @@ export default function ScrollVideo({
       imgs.push(img);
     }
     imagesRef.current = imgs;
+    bitmapsRef.current = bitmaps;
 
     const onScroll = () => {
       if (rafRef.current != null) return;
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null;
-        const spacer = spacerRef.current;
-        if (!spacer) return;
-        const rect = spacer.getBoundingClientRect();
-        const total = spacer.offsetHeight;
-        const scrolled = Math.max(0, Math.min(total, -rect.top));
-        const t = total > 0 ? scrolled / total : 0;
+        const { top: spacerTop, height: total } = spacerMetricsRef.current;
+        if (total <= 0) return;
+        const scrolled = Math.max(0, Math.min(total, window.scrollY - spacerTop));
+        const t = scrolled / total;
 
         // Scrub portion (0..ANIMATION_END maps to 0..1 of frames).
         const animP = Math.min(1, t / ANIMATION_END);
@@ -193,6 +241,7 @@ export default function ScrollVideo({
     };
 
     const onResize = () => {
+      refreshMetrics();
       drawFrame(lastFrameRef.current >= 0 ? lastFrameRef.current : 0);
       onScroll();
     };
@@ -211,6 +260,11 @@ export default function ScrollVideo({
         img.onerror = null;
       });
       imagesRef.current = [];
+      // Close ImageBitmaps to release their backing GPU memory
+      // immediately rather than waiting for GC.
+      bitmapsRef.current.forEach((b) => b?.close());
+      bitmapsRef.current = [];
+      ctxRef.current = null;
     };
   }, [framesBase]);
 
@@ -239,7 +293,7 @@ export default function ScrollVideo({
         <canvas
           ref={canvasRef}
           className="absolute inset-0 block"
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: "100%", height: "100%", willChange: "transform" }}
           aria-hidden
         />
 

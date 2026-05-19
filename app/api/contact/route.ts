@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDB } from "@/app/lib/db";
 import { randomId } from "@/app/lib/analytics";
-import { sendLeadNotification, sendLeadConfirmation } from "@/app/lib/email";
+import {
+  sendAdminNotification,
+  sendCustomerConfirmation,
+  type SubmissionPayload,
+} from "@/app/lib/email";
 
 export const runtime = "nodejs";
 
@@ -37,10 +41,11 @@ export async function POST(req: Request) {
   }
 
   const id = randomId();
-  const phone = (body.phone ?? "").trim() || null;
-  const service = (body.service ?? "").trim() || null;
+  const phone = (body.phone ?? "").trim() || undefined;
+  const service = (body.service ?? "").trim() || undefined;
   const source: "home" | "contact" | "dossier" =
     body.source === "contact" || body.source === "dossier" ? body.source : "home";
+  const created_at = new Date().toISOString();
 
   // DB insert is the contract: leads are captured even if email plumbing
   // fails. Email sends below are best-effort and never throw upward.
@@ -49,16 +54,17 @@ export async function POST(req: Request) {
       `INSERT INTO form_submissions (id, name, email, phone, service, message, source)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
-    .bind(id, name, email, phone, service, message, source)
+    .bind(id, name, email, phone ?? null, service ?? null, message, source)
     .run();
 
-  const payload = { id, name, email, phone, service, message, source };
-  // Fire both in parallel — neither blocks the other. Each function
-  // catches its own errors and logs them; the route always returns 201.
-  await Promise.allSettled([
-    sendLeadNotification(payload),
-    sendLeadConfirmation(payload),
-  ]);
+  const payload: SubmissionPayload = {
+    id, name, email, phone, service, message, source, created_at,
+  };
+
+  // Fire-and-forget — never block the response on email delivery.
+  // Each function catches and logs its own errors; the route always returns 201.
+  sendAdminNotification(payload);
+  sendCustomerConfirmation(payload);
 
   return NextResponse.json({ success: true, id }, { status: 201 });
 }

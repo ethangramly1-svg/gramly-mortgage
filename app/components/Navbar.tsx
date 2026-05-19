@@ -56,9 +56,10 @@ export default function Navbar() {
         >
           <Image
             src="/assets/clear-modern-logo.png"
-            alt="Chris Gramly"
-            width={28}
-            height={28}
+            alt="Clear Modern Mortgage"
+            width={140}
+            height={33}
+            priority
             className="object-contain"
           />
           <span className="font-display font-light text-base tracking-[-0.02em] text-bone">
