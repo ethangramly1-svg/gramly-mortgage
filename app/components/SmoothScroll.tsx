@@ -46,7 +46,7 @@ export default function SmoothScroll() {
       smoothWheel: true,
       wheelMultiplier: 0.95,
       touchMultiplier: 1.1,
-      lerp: 0.11,
+      lerp: 0.15,
     });
 
     window.__lenis = lenis;

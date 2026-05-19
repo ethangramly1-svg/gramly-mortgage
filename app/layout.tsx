@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         lang="en"
         className={`${display.variable} ${body.variable} ${mono.variable} h-full`}
       >
-        <body className="noise min-h-full flex flex-col bg-ink text-bone">
+        <body className="min-h-full flex flex-col bg-ink text-bone">
           <AnalyticsTracker />
           {children}
         </body>
